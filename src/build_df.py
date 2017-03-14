@@ -12,7 +12,6 @@ import sys
 # sys.setdefaultencoding('UTF8')
 
 
-### only run this code if you need to update from s3 bucket
 def extract_from_s3(bucket_name, local_folder):
     ''' 
     saves json files from s3 bucket locally requires acccess key to bucket.
@@ -35,6 +34,7 @@ def extract_from_s3(bucket_name, local_folder):
         if fname not in files and '.json' in fname:
             aws.meta.client.download_file(bucket_name,
                                 fname,'{}{}'.format(local_folder, fname))
+
 
 def create_flattened_dataframe(json_folder):
     '''
@@ -82,6 +82,7 @@ def create_flattened_dataframe(json_folder):
         city_df[cat].fillna(False, inplace=True)
     return city_df
 
+
 # def split_dict_rows(cell, appendee):
 #     '''
 #     Splits cells from list of rows into 
@@ -94,6 +95,7 @@ def create_flattened_dataframe(json_folder):
 #     None
 #     '''
 #     appendee.append(dict)
+
 
 def add_list_contents_to_df(row, appendee):
     '''
@@ -113,6 +115,7 @@ def add_list_contents_to_df(row, appendee):
         reviews['review-{}'.format(i)] = review
     appendee.append(reviews)
 
+
 def create_reviews_df(df):
     '''
     Generates reviews dataframe from existing object
@@ -121,7 +124,7 @@ def create_reviews_df(df):
     df: pandas df - from create_flattened_dataframe function
     ========
     RETURNS
-    review_df: pandas df - dataframe containing reviews
+    review_df: pandas df - dataframe containing reviews for analysis
     '''
     reviews_1 = df['id']
     keys = df['reviews'].values[0][0].keys()
@@ -140,6 +143,7 @@ def create_reviews_df(df):
     reviews_df.columns = ['bus_id', 'review no', 'content', 'rating', 'date', 'user']
     return reviews_df
 
+
 def create_photos_df(df):
     '''
     creates simple photos df associating photos with a bus id
@@ -151,6 +155,7 @@ def create_photos_df(df):
     new_df: pandas df - dataframe containing reviews
     '''
     pass
+
 
 def create_general_df(df):
     '''
@@ -164,7 +169,7 @@ def create_general_df(df):
     pass
 
 
-def save_df_to_json(df, file_location):
+def save_df_to_json(df, file_location): # i now realize this function is stupid
     '''
     Stores pandas dataframe as single .json file
     ========
@@ -176,6 +181,7 @@ def save_df_to_json(df, file_location):
     None
     '''
     df.to_json(file_location)
+
 
 def save_file_to_s3(file_location, bucket_name, bucket_key):
     '''
@@ -192,9 +198,3 @@ def save_file_to_s3(file_location, bucket_name, bucket_key):
     aws = boto3.resource('s3')
     ww_all = aws.Bucket(bucket_name)
     ww_all.upload_file(file_location, bucket_key)
-
-def extract_reviews_df():
-    '''
-    docstrings bitches
-    '''
-    pass
