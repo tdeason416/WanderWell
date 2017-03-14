@@ -1,3 +1,16 @@
+'''
+TOOLS FOR IMPORTING ORGANIZING AND STORING REVIEW DATA
+---------------------
+extract_from_s3: Saves files from directory to local folder for faster processing
+create_flattened_dataframe: converts local folder of json files into pandas dataframe of reviews
+create_reviews_df: generate dataframe of review for modeling
+remote_unwanted_POIs: removes all unwanted Points of interest (points which do not add value to the model)
+create_photos_df: **WORK IN PROGRESS**, generates dataframe of photos for modeling
+create_general_df: creates analysis df from existing flatttned and 
+save_df_to_json: saves pandas dataframe as json object
+save_file to s3: archives file to s3 bucket
+'''
+
 import boto3
 import os
 
@@ -6,11 +19,6 @@ import json
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
-
-import sys
-# sys.setdefaultencoding('UTF8')
-
 
 ### only run this code if you need to update from s3 bucket
 def extract_from_s3(bucket_name, local_folder):
@@ -82,20 +90,9 @@ def create_flattened_dataframe(json_folder):
         city_df[cat].fillna(False, inplace=True)
     return city_df
 
-# def split_dict_rows(cell, appendee):
-#     '''
-#     Splits cells from list of rows into 
-#     ========
-#     PARAMETERS
-#     cell: cell containing dictionary
-#     appendee: lit to add dictionaries to
-#     =======
-#     RETURNS
-#     None
-#     '''
-#     appendee.append(dict)
 
-def add_list_contents_to_df(row, appendee):
+
+def _add_list_contents_to_df(row, appendee):
     '''
     Appends rows in df to new columns
     --------
@@ -126,7 +123,7 @@ def create_reviews_df(df):
     reviews_1 = df['id']
     keys = df['reviews'].values[0][0].keys()
     review_rows = []
-    df['reviews'].apply(add_list_contents_to_df, appendee= review_rows)
+    df['reviews'].apply(_add_list_contents_to_df, appendee= review_rows)
     reviews = pd.DataFrame(review_rows)
     reviews_ = reviews.set_index(reviews_1)
     reviews_ = reviews_.stack()
