@@ -149,16 +149,32 @@ def _filter_items(filt_list, cats_df):
     cats_df: pandas dataframe - catagories mated with thie parents.
     --------
     RETURNS
-    items_bool: np.array - True if item appears in parent or child
+    set - contains relevant catagories
     '''
     blank_bool = np.zeros(cats_df.shape[0]).reshape(-1,1)
     for cat in filt_list:
         blank_bool += cats_df['parent'].str.contains(cat).fillna(False)
-        blank_bool += cats_df['catagory'].str.contains('breweries').fillna(False)
-    blank_bool
+        blank_bool += cats_df['catagory'].str.contains(cat).fillna(False)
+    return set(cats_df[blank_bool > 0]['catagory'].values)
 
-
-
+def _apply_filter(df, cat_set, cat):
+    '''
+    Adds a col to df as new object with bools to represent the given catagory
+    --------
+    PARAMETERS
+    df: pd.Dataframe -  contains information on city POI's
+    cat_set: set - contains related catagories to the interest
+    cat: string - name of interest catagory
+    --------
+    RETURNS
+    bool_array
+    pd.Dataframe - similar to input with added row.
+    '''
+    df_ = df.copy()
+    df_[cat] = df_['category-0'].isin(cat_set)
+    df_[cat] = df_[cat] + df_['category-1'].isin(cat_set)
+    df_[cat] = df_[cat] + df_['category-2'].isin(cat_set)
+    return df_ > 0
 
 def remove_unwanted_POIs(df, city):
     '''
@@ -171,13 +187,15 @@ def remove_unwanted_POIs(df, city):
     RETURNS
     new_df: pandas df - with less rows of data
     '''  
+    #--------#
+    #if on s3 use
+    aws = boto3.resource('s3')
+    catfile = aws.Object('wanderwell-ready', 'poi-catagories')
     # #if local use
     # catfile = 'data/categories.json'
     #--------#
-    #if on s3 use
+    #### remove all entries which are not in the target city
     df_ = df[df['location.city'].str.lower() != city.lower()] 
-    aws = boto3.resource('s3')
-    catfile = aws.Object('wanderwell-ready', 'poi-catagories')
     cat_df = pd.read_json(catfile)
     cat_key = cat_df.set_index('alias')['parents']
     cat_key_m = cat_key.apply(lambda x: pd.Series(x))
@@ -186,36 +204,19 @@ def remove_unwanted_POIs(df, city):
     cats_df.columns = ['catagory', 'parent']
     cats_df.dropna(inplace=True)
     blank_bool = np.ones(cats_df.shape[0]).reshape(-1,1)
-    #### FOOD CATAGORIES
-    parent_cats = ['food', 'restaurants']
-    for par in parent_cats:
-
-    cats_df = cat_key_m.reset_index()
-    cats_df.columns = ['catagory', 'parent']
-    food_bool = cats_df['parent'] == 'food'
-    rest_bool = cats_df['parent'] == 'restaurants'
-    all_food_bool = food_bool + rest_bool
-    food_cats = cats_df[all_food_bool]
-    has_food = set(food_cats['catagory'].values)
-    #### NIGHTLIFE CATAGORIES
-    cats_df = cat_key_m.reset_index()
-    cats_df.columns = ['catagory', 'parent']
-    club_bool = cats_df['parent'] == 'nightlife'
-    bar_bool = cats_df['parent'] == 'bars'
-    beer_bool = cats_df['parent'].str.contains('beer').fillna(False)
-    wine_bool = cats_df['parent'].str.contains('wine').fillna(False)
-    cocktail_bool = cats_df['parent'].str.contains('cocktail').fillna(False)
-    pub_bool = cats_df['catagory'].str.contains('pubs').fillna(False)
-    breweries_bool = cats_df['catagory'].str.contains('breweries').fillna(False)
-    pub_bool = cats_df['catagory'].str.contains('wineries').fillna(False)
-    nightlife_bool = (club_bool + bar_bool + beer_bool + wine_bool + 
-                      cocktail_bool + 
-
-
-
-
-
-    pass
+    ### split catagories
+    subcat = {}
+    subcat['food'] = _filter_items(['food', 'restaurants'], cats_df)
+    subcat['coffee'] = _filter_items(['coffee'], cats_df)
+    subcat['nightlife'] = _filter_items(['beer', 'wine', 'cocktail', 
+                                    'bars', 'pubs', 'breweries'], cats_df)
+    bools = np.zeros(cats_df.shape[0]).reshape(-1,1)
+    for key, value in subcat.iteritems():
+         df_ = _apply_filter(df_, value, key)
+         bools += df[key]
+    #### drop all catagories which are not included in the filters.
+    df_ = df_[bools > 0]
+    return df_
 
 def create_photos_df(df):
     '''
@@ -246,10 +247,8 @@ def create_general_df(df):
                 ]
     keep_cols += [col for col in df.columns if col.startswith('hours')]
     df_ = df[keep_cols]
-    df.columns = [
-        'id', 'catagory', 'lat', 'long', 'claimed', 'zip', 'n_photos', 
-        'price', 'review_count', 'transactions'
-                ]
+    df.columns = ['id', 'catagory', 'lat', 'long', 'claimed', 'zip', 'n_photos', 
+                                        'price', 'review_count', 'transactions']
     pass
 
 def save_df_to_json(df, file_location):
