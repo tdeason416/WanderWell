@@ -38,7 +38,7 @@ def extract_from_s3(bucket_name, local_folder):
 
 def create_flattened_dataframe(json_folder):
     '''
-    loads locally stored single line .json files into flattned dataframe
+    Loads locally stored single line .json files into flattned dataframe
     --------
     PARAMETERS
     json_folder: local folder containing only json to analyze
@@ -97,7 +97,7 @@ def create_flattened_dataframe(json_folder):
 
 def add_list_contents_to_df(row, appendee):
     '''
-    appends rows in df to new columns
+    Appends rows in df to new columns
     --------
     PARAMETERS
     row: dataframe row containing list if items
@@ -140,9 +140,86 @@ def create_reviews_df(df):
     reviews_df.columns = ['bus_id', 'review no', 'content', 'rating', 'date', 'user']
     return reviews_df
 
+def _filter_items(filt_list, cats_df):
+    '''
+    Generates a bool array for the requested catagories
+    --------
+    PARAMETERS
+    filt_list: list of terms to appear in parent or child of catagories list
+    cats_df: pandas dataframe - catagories mated with thie parents.
+    --------
+    RETURNS
+    items_bool: np.array - True if item appears in parent or child
+    '''
+    blank_bool = np.zeros(cats_df.shape[0]).reshape(-1,1)
+    for cat in filt_list:
+        blank_bool += cats_df['parent'].str.contains(cat).fillna(False)
+        blank_bool += cats_df['catagory'].str.contains('breweries').fillna(False)
+    blank_bool
+
+
+
+
+def remove_unwanted_POIs(df, city):
+    '''
+    Removes non food/coffee/bar/recreation points of interest from dataframe
+    --------
+    PARAMETERS
+    df: panads df  - to be cleaned
+    city: string - name of city
+    --------
+    RETURNS
+    new_df: pandas df - with less rows of data
+    '''  
+    # #if local use
+    # catfile = 'data/categories.json'
+    #--------#
+    #if on s3 use
+    df_ = df[df['location.city'].str.lower() != city.lower()] 
+    aws = boto3.resource('s3')
+    catfile = aws.Object('wanderwell-ready', 'poi-catagories')
+    cat_df = pd.read_json(catfile)
+    cat_key = cat_df.set_index('alias')['parents']
+    cat_key_m = cat_key.apply(lambda x: pd.Series(x))
+    cat_key_m = cat_key_m[0]
+    cats_df = cat_key_m.reset_index()
+    cats_df.columns = ['catagory', 'parent']
+    cats_df.dropna(inplace=True)
+    blank_bool = np.ones(cats_df.shape[0]).reshape(-1,1)
+    #### FOOD CATAGORIES
+    parent_cats = ['food', 'restaurants']
+    for par in parent_cats:
+
+    cats_df = cat_key_m.reset_index()
+    cats_df.columns = ['catagory', 'parent']
+    food_bool = cats_df['parent'] == 'food'
+    rest_bool = cats_df['parent'] == 'restaurants'
+    all_food_bool = food_bool + rest_bool
+    food_cats = cats_df[all_food_bool]
+    has_food = set(food_cats['catagory'].values)
+    #### NIGHTLIFE CATAGORIES
+    cats_df = cat_key_m.reset_index()
+    cats_df.columns = ['catagory', 'parent']
+    club_bool = cats_df['parent'] == 'nightlife'
+    bar_bool = cats_df['parent'] == 'bars'
+    beer_bool = cats_df['parent'].str.contains('beer').fillna(False)
+    wine_bool = cats_df['parent'].str.contains('wine').fillna(False)
+    cocktail_bool = cats_df['parent'].str.contains('cocktail').fillna(False)
+    pub_bool = cats_df['catagory'].str.contains('pubs').fillna(False)
+    breweries_bool = cats_df['catagory'].str.contains('breweries').fillna(False)
+    pub_bool = cats_df['catagory'].str.contains('wineries').fillna(False)
+    nightlife_bool = (club_bool + bar_bool + beer_bool + wine_bool + 
+                      cocktail_bool + 
+
+
+
+
+
+    pass
+
 def create_photos_df(df):
     '''
-    creates simple photos df associating photos with a bus id
+    Creates simple photos df associating photos with a bus id
     --------
     PARAMETERS
     df: pandas df - from create_flattened_dataframe function
@@ -173,8 +250,7 @@ def create_general_df(df):
         'id', 'catagory', 'lat', 'long', 'claimed', 'zip', 'n_photos', 
         'price', 'review_count', 'transactions'
                 ]
-
-
+    pass
 
 def save_df_to_json(df, file_location):
     '''
@@ -204,9 +280,3 @@ def save_file_to_s3(file_location, bucket_name, bucket_key):
     aws = boto3.resource('s3')
     ww_all = aws.Bucket(bucket_name)
     ww_all.upload_file(file_location, bucket_key)
-
-def extract_reviews_df():
-    '''
-    docstrings bitches
-    '''
-    pass
