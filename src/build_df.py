@@ -151,7 +151,7 @@ def _filter_items(filt_list, cats_df):
     RETURNS
     set - contains relevant catagories
     '''
-    blank_bool = np.zeros(cats_df.shape[0]).reshape(-1,1)
+    blank_bool = np.zeros((cats_df.shape[0],1), dtype=np.int64).flatten()
     for cat in filt_list:
         blank_bool += cats_df['parent'].str.contains(cat).fillna(False)
         blank_bool += cats_df['catagory'].str.contains(cat).fillna(False)
@@ -171,10 +171,10 @@ def _apply_filter(df, cat_set, cat):
     pd.Dataframe - similar to input with added row.
     '''
     df_ = df.copy()
-    df_[cat] = df_['category-0'].isin(cat_set)
-    df_[cat] = df_[cat] + df_['category-1'].isin(cat_set)
-    df_[cat] = df_[cat] + df_['category-2'].isin(cat_set)
-    return df_ > 0
+    df_[cat] = df_['category-0'].isin(cat_set).fillna(False)
+    df_[cat] = df_[cat] + df_['category-1'].isin(cat_set).fillna(False)
+    df_[cat] = df_[cat] + df_['category-2'].isin(cat_set).fillna(False)
+    return df_
 
 def remove_unwanted_POIs(df, city):
     '''
@@ -186,16 +186,19 @@ def remove_unwanted_POIs(df, city):
     --------
     RETURNS
     new_df: pandas df - with less rows of data
-    '''  
+    '''
     #--------#
     #if on s3 use
     aws = boto3.resource('s3')
-    catfile = aws.Object('wanderwell-ready', 'poi-catagories')
+    catfile = aws.Object('wanderwell-ready', 'poi-catagories').get()['Body']
     # #if local use
     # catfile = 'data/categories.json'
     #--------#
     #### remove all entries which are not in the target city
-    df_ = df[df['location.city'].str.lower() != city.lower()] 
+    print df.shape
+    df_ = df[df['location.city'].str.lower() == city.lower()]
+    print df_.shape
+    #### create catagories table
     cat_df = pd.read_json(catfile)
     cat_key = cat_df.set_index('alias')['parents']
     cat_key_m = cat_key.apply(lambda x: pd.Series(x))
@@ -203,18 +206,18 @@ def remove_unwanted_POIs(df, city):
     cats_df = cat_key_m.reset_index()
     cats_df.columns = ['catagory', 'parent']
     cats_df.dropna(inplace=True)
-    blank_bool = np.ones(cats_df.shape[0]).reshape(-1,1)
-    ### split catagories
+    #### split catagories
     subcat = {}
     subcat['food'] = _filter_items(['food', 'restaurants'], cats_df)
     subcat['coffee'] = _filter_items(['coffee'], cats_df)
-    subcat['nightlife'] = _filter_items(['beer', 'wine', 'cocktail', 
-                                    'bars', 'pubs', 'breweries'], cats_df)
-    bools = np.zeros(cats_df.shape[0]).reshape(-1,1)
+    subcat['nightlife'] = _filter_items(['beer', 'wine', 'cocktail',
+                                        'bars', 'pubs', 'breweries'], cats_df)
+    #### add bool variables for specific catagories
+    bools = np.zeros((df_.shape[0],1), dtype=np.int64).flatten()
     for key, value in subcat.iteritems():
-         df_ = _apply_filter(df_, value, key)
-         bools += df[key]
-    #### drop all catagories which are not included in the filters.
+        df_ = _apply_filter(df_, value, key)
+        bools += df_[key]
+    df_.drop(['category-1', 'category-2', 'category-3'], axis=1, inplace=True)
     df_ = df_[bools > 0]
     return df_
 
