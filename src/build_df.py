@@ -195,9 +195,7 @@ def remove_unwanted_POIs(df, city):
     # catfile = 'data/categories.json'
     #--------#
     #### remove all entries which are not in the target city
-    print df.shape
     df_ = df[df['location.city'].str.lower() == city.lower()]
-    print df_.shape
     #### create catagories table
     cat_df = pd.read_json(catfile)
     cat_key = cat_df.set_index('alias')['parents']
@@ -217,7 +215,6 @@ def remove_unwanted_POIs(df, city):
     for key, value in subcat.iteritems():
         df_ = _apply_filter(df_, value, key)
         bools += df_[key]
-    df_.drop(['category-1', 'category-2', 'category-3'], axis=1, inplace=True)
     df_ = df_[bools > 0]
     return df_
 
@@ -241,18 +238,19 @@ def create_general_df(df):
     df: pandas df - from create_flattened_dataframe function
     --------
     RETURNS
-    new_df: pandas df - dataframe containing reviews
+    pandas df - dataframe containing reviews
     '''
-    keep_cols = [
-        'id', 'catergory-0', 'coordinates.lattitude', 'coordinates.longitude',
-        'is_claimed', 'location.zip_code', 'photos', 'price', 'review_count',
-        'transactions'
-                ]
-    keep_cols += [col for col in df.columns if col.startswith('hours')]
+    keep_cols = ['name', 'category-0', 'coordinates.latitude', 'coordinates.longitude',
+                'is_claimed', 'location.zip_code', 'price', 'review_count']
+    hours_cols = [col for col in df.columns if col.startswith('hours')]
+    keep_cols += hours_cols
     df_ = df[keep_cols]
-    df.columns = ['id', 'catagory', 'lat', 'long', 'claimed', 'zip', 'n_photos', 
-                                        'price', 'review_count', 'transactions']
-    pass
+    df_.columns = ['id', 'category', 'lat', 'long', 'claimed', 'zip', 
+                   'price', 'review_count'] + hours_cols
+    df_['price'].fillna('K', inplace=True)
+    df_['price'] = df_['price'].apply(lambda x: len(x) if x is not 'K' else 0)
+    df_['price'].fillna(False, inplace=True)
+    return df_
 
 def save_df_to_json(df, file_location):
     '''
