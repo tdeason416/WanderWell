@@ -15,12 +15,12 @@ import sys
 ### only run this code if you need to update from s3 bucket
 def extract_from_s3(bucket_name, local_folder):
     ''' 
-    saves json files from s3 bucket locally requires acccess key to bucket.
-    ========
+    Saves all json files from s3 bucket to a local folder
+    --------
     PARAMETERS:
     bucket_name: str - s3 bucket where json is stored
     local_folder: location to save files locally
-    ========
+    --------
     RETURNS:
     None - output is sent to local file
     '''
@@ -39,10 +39,10 @@ def extract_from_s3(bucket_name, local_folder):
 def create_flattened_dataframe(json_folder):
     '''
     loads locally stored single line .json files into flattned dataframe
-    ========
+    --------
     PARAMETERS
     json_folder: local folder containing only json to analyze
-    ========
+    --------
     RETURNS
     city_df:  pandas dataframe - coarse dataframe of output data
     '''
@@ -98,11 +98,11 @@ def create_flattened_dataframe(json_folder):
 def add_list_contents_to_df(row, appendee):
     '''
     appends rows in df to new columns
-    ========
+    --------
     PARAMETERS
     row: dataframe row containing list if items
     apandee: list to add items onto
-    ========
+    --------
     RETURNS
     None
     '''
@@ -116,10 +116,10 @@ def add_list_contents_to_df(row, appendee):
 def create_reviews_df(df):
     '''
     Generates reviews dataframe from existing object
-    ========
+    --------
     PARAMETERS
     df: pandas df - from create_flattened_dataframe function
-    ========
+    --------
     RETURNS
     review_df: pandas df - dataframe containing reviews
     '''
@@ -143,10 +143,10 @@ def create_reviews_df(df):
 def create_photos_df(df):
     '''
     creates simple photos df associating photos with a bus id
-    ========
+    --------
     PARAMETERS
     df: pandas df - from create_flattened_dataframe function
-    ========
+    --------
     RETURNS
     new_df: pandas df - dataframe containing reviews
     '''
@@ -155,23 +155,35 @@ def create_photos_df(df):
 def create_general_df(df):
     '''
     Create general df for buisness Identification and rating.
+    --------
     PARAMETERS
     df: pandas df - from create_flattened_dataframe function
-    ========
+    --------
     RETURNS
     new_df: pandas df - dataframe containing reviews
     '''
-    pass
+    keep_cols = [
+        'id', 'catergory-0', 'coordinates.lattitude', 'coordinates.longitude',
+        'is_claimed', 'location.zip_code', 'photos', 'price', 'review_count',
+        'transactions'
+                ]
+    keep_cols += [col for col in df.columns if col.startswith('hours')]
+    df_ = df[keep_cols]
+    df.columns = [
+        'id', 'catagory', 'lat', 'long', 'claimed', 'zip', 'n_photos', 
+        'price', 'review_count', 'transactions'
+                ]
+
 
 
 def save_df_to_json(df, file_location):
     '''
     Stores pandas dataframe as single .json file
-    ========
+    --------
     PARAMETERS
     df: pandas dataframe 
     file_location: string - location of file to save df data
-    ========
+    --------
     RETURNS
     None
     '''
@@ -180,12 +192,12 @@ def save_df_to_json(df, file_location):
 def save_file_to_s3(file_location, bucket_name, bucket_key):
     '''
     Stores pandas dataframe as single .json file in save_df_to_s3_json
-    ========
+    -------
     PARAMETERS
     file_location: string - location of file to upload to s3
     bucket_name: string - s3 bucket to store .json file
     bucket_key: string - desired file name on s3
-    ========
+    -------
     RETURNS
     None
     '''
