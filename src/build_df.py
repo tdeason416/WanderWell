@@ -249,6 +249,72 @@ def create_general_df(df):
     df_['price'].fillna(False, inplace=True)
     return df_
 
+def _find_min_distance(df1, df2):
+    '''
+    Finds Min distance between df1 and df2 values
+    --------
+    PARAMETERS
+    df1: pd.DataFrame - Index dataframe
+    df2: pd.DataFrame - being compared
+    --------
+    RETURNS
+    index of items which contains the 'dist' column
+    '''
+    ## assume city is not straddling the equator or PM
+    df1_ = df1.abs()
+    ## there were 7 NA values in portland, discarding for now, may return later
+    df2_ = df1.dropna(axis=0)
+    df2_ = df2_[['lat', 'long']].abs()
+    min_lat = []
+    min_long = []
+    for i in df1_['lat']:
+        min_lat.append((np.abs(df2_ - i)).min())
+    for j in df1_['long']:
+        min_long.append((np.abs(df2_ - i)).min())
+    df1_['dist'] = np.sqrt((np.array(min_lat)**2 + np.array(min_long)**2))
+    return df1_
+
+
+
+def build_grid(city_df, point_spacing, max_distance):
+    '''
+    Builds grid of points geographically based on proximity to points
+    --------
+    PARAMETERS
+    city_df: pandas df - after it has been cleaned by create_general_df
+    point_spacing: float - how far points should be located away from each other
+    max_distance: float - how far a point is allowed to be away from any POIS
+    --------
+    RETURNS
+    city_grid: pandas df contining long, and lat columns
+    '''
+    pnorth = city_df['lat'].max() + max_distance
+    psouth = city_df['lat'].min() - max_distance
+    pwest = city_df['long'].max() + max_distance
+    peast = city_df['long'].min() - max_distance
+    lats = np.arange(psouth, pnorth, point_spacing).reshape(-1, 1)
+    longs = np.arange(peast, pwest, point_spacing).reshape(-1, 1)
+    dummy = np.ones((lats.size, 1))
+    empty = np.arange(2).reshape(1, 2)
+    for value in longs:
+        addcol = dummy * value
+        addrow = np.append(lats, addcol, axis=1)
+        empty = np.append(empty, addrow, axis=0)
+    grid = pd.DataFrame(empty[1:,:])
+    grid.columns = ['lat', 'long']
+    gridex = _find_min_distance(grid, city_df)
+    grid = grid[gridex['dist'] < max_distance]
+    return grid
+    
+
+    # city_grid = pd.DataFrame({'lat': np.arange(pbot, ptop, point_spacing)
+    # })
+
+    
+
+
+
+
 def save_df_to_json(df, file_location):
     '''
     Stores pandas dataframe as single .json file
@@ -277,3 +343,4 @@ def save_file_to_s3(file_location, bucket_name, bucket_key):
     aws = boto3.resource('s3')
     ww_all = aws.Bucket(bucket_name)
     ww_all.upload_file(file_location, bucket_key)
+
