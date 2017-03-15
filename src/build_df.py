@@ -303,7 +303,7 @@ def build_grid(city_df, point_spacing, max_distance):
     grid = pd.DataFrame(empty[1:,:])
     grid.columns = ['lat', 'long']
     gridex = _find_min_distance(grid, city_df)
-    grid = grid[gridex['dist'] < max_distance]
+    grid = grid[gridex['dist'] > max_distance]
     return grid
     
 
