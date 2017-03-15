@@ -193,10 +193,7 @@ def remove_unwanted_POIs(df, city):
     #--------#
     #### remove all entries which are not in the target city
     df_ = df[df['location.city'].str.lower() == city.lower()]
-    zips = df[df_['location.zip_code'].value_counts() < 10]
-    zipdex = zips[zips].index
-    for zipcode in zipdex:
-        df_ = df_[df_['location.zip_code'] != zipcode]
+
     #### create catagories table
     cat_df = pd.read_json(catfile)
     cat_key = cat_df.set_index('alias')['parents']
@@ -217,6 +214,10 @@ def remove_unwanted_POIs(df, city):
         df_ = _apply_filter(df_, value, key)
         bools |= df_[key]
     df_ = df_[bools > 0]
+    zips = df_['location.zip_code'].value_counts() < 10
+    zipdex = zips[zips].index
+    for zipcode in zipdex:
+        df_ = df_[df_['location.zip_code'] != zipcode]
     return df_
 
 def create_photos_df(df):
