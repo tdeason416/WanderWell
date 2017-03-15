@@ -193,6 +193,10 @@ def remove_unwanted_POIs(df, city):
     #--------#
     #### remove all entries which are not in the target city
     df_ = df[df['location.city'].str.lower() == city.lower()]
+    zips = df[df_['location.zip_code'].value_counts() < 10]
+    zipdex = zips[zips].index
+    for zipcode in zipdex:
+        df_ = df_[df_['location.zip_code'] != zipcode]
     #### create catagories table
     cat_df = pd.read_json(catfile)
     cat_key = cat_df.set_index('alias')['parents']
@@ -211,7 +215,7 @@ def remove_unwanted_POIs(df, city):
     bools = np.zeros((df_.shape[0],1), dtype=np.int64).flatten()
     for key, value in subcat.iteritems():
         df_ = _apply_filter(df_, value, key)
-        bools += df_[key]
+        bools |= df_[key]
     df_ = df_[bools > 0]
     return df_
 
@@ -244,8 +248,8 @@ def create_general_df(df):
     df_ = df[keep_cols]
     df_.columns = ['id', 'category', 'lat', 'long', 'claimed', 'zip', 
                    'price', 'review_count'] + hours_cols
-    df_['price'].fillna('K', inplace=True)
-    df_['price'] = df_['price'].apply(lambda x: len(x) if x is not 'K' else 0)
+    df_['price'].fillna('0', inplace=True)
+    df_['price'] = df_['price'].apply(lambda x: len(x) if x is not '0' else 0)
     df_['price'].fillna(False, inplace=True)
     df_['lat'] = df_['lat'].astype(float)
     df_['long'] = df_['long'].astype(float)
@@ -268,13 +272,12 @@ def _find_min_distance(df1, df2):
     df2_lat = df2['lat'].abs().dropna()
     df2_lat.index = np.arange(df2_lat.size)
     df2_long = df2['long'].abs().dropna()
-    df2_long.index = np.arange(df2_long.size, 2 * df2_long.size)
+    df2_long.index = np.arange(df2_long.size)
     tmp1 = df1_['lat'].apply(lambda x: np.abs(x - df2_lat))
-    lats_min = tmp1.apply(np.min, axis=1).reshape(-1,1)
     tmp2 = df1_['long'].apply(lambda x: np.abs(x - df2_long))
-    longs_min = tmp2.apply(np.min, axis=1).reshape(-1, 1)
-    # potato = np.linalg.norm(np.append(lats_min, longs_min), axis=0)
-    df1_['dist'] = np.sqrt(longs_min*longs_min + lats_min*lats_min)
+    distances = np.sqrt(tmp1*tmp1 + tmp2*tmp2)
+    distances_min = distances.apply(np.min, axis=1)
+    df1_['dist'] = distances_min
     return df1_
 
 
