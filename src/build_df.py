@@ -265,13 +265,11 @@ def _find_min_distance(df1, df2):
     ## there were 7 NA values in portland, discarding for now, may return later
     df2_ = df1.dropna(axis=0)
     df2_ = df2_[['lat', 'long']].abs()
-    min_lat = []
-    min_long = []
-    for i in df1_['lat']:
-        min_lat.append((np.abs(df2_ - i)).min())
-    for j in df1_['long']:
-        min_long.append((np.abs(df2_ - i)).min())
-    df1_['dist'] = np.sqrt((np.array(min_lat)**2 + np.array(min_long)**2))
+    tmp1 = df1_['lat'].apply(lambda x: np.abs(df2_['lat']-x))
+    lats_min = tmp1.apply(np.min, axis=0)
+    tmp2 = df1_['long'].apply(lambda x: np.abs(df2_['long']-x))
+    lats_min = tmp2.apply(np.min, axis=0)
+    df1_['dist'] = np.sqrt(lats_min**2 + longs_min**2)
     return df1_
 
 
