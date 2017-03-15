@@ -247,6 +247,8 @@ def create_general_df(df):
     df_['price'].fillna('K', inplace=True)
     df_['price'] = df_['price'].apply(lambda x: len(x) if x is not 'K' else 0)
     df_['price'].fillna(False, inplace=True)
+    df_['lat'] = df_['lat'].astype(float)
+    df_['long'] = df_['long'].astype(float)
     return df_
 
 def _find_min_distance(df1, df2):
@@ -260,16 +262,19 @@ def _find_min_distance(df1, df2):
     RETURNS
     index of items which contains the 'dist' column
     '''
-    ## assume city is not straddling the equator or PM
+    # assume city is not straddling the equator or PM
     df1_ = df1.abs()
     ## there were 7 NA values in portland, discarding for now, may return later
-    df2_ = df1.dropna(axis=0)
-    df2_ = df2_[['lat', 'long']].abs()
-    tmp1 = df1_['lat'].apply(lambda x: np.abs(df2_['lat']-x))
-    lats_min = tmp1.apply(np.min, axis=0)
-    tmp2 = df1_['long'].apply(lambda x: np.abs(df2_['long']-x))
-    lats_min = tmp2.apply(np.min, axis=0)
-    df1_['dist'] = np.sqrt(lats_min**2 + longs_min**2)
+    df2_lat = df2['lat'].abs().dropna()
+    df2_lat.index = np.arange(df2_lat.size)
+    df2_long = df2['long'].abs().dropna()
+    df2_long.index = np.arange(df2_long.size, 2 * df2_long.size)
+    tmp1 = df1_['lat'].apply(lambda x: np.abs(x - df2_lat))
+    lats_min = tmp1.apply(np.min, axis=1).reshape(-1,1)
+    tmp2 = df1_['long'].apply(lambda x: np.abs(x - df2_long))
+    longs_min = tmp2.apply(np.min, axis=1).reshape(-1, 1)
+    # potato = np.linalg.norm(np.append(lats_min, longs_min), axis=0)
+    df1_['dist'] = np.sqrt(longs_min*longs_min + lats_min*lats_min)
     return df1_
 
 
@@ -290,6 +295,7 @@ def build_grid(city_df, point_spacing, max_distance):
     psouth = city_df['lat'].min() - max_distance
     pwest = city_df['long'].max() + max_distance
     peast = city_df['long'].min() - max_distance
+    
     lats = np.arange(psouth, pnorth, point_spacing).reshape(-1, 1)
     longs = np.arange(peast, pwest, point_spacing).reshape(-1, 1)
     dummy = np.ones((lats.size, 1))
