@@ -339,7 +339,7 @@ def save_df_to_json(df, file_location):
     '''
     df.to_json(file_location)
 
-def save_file_to_s3(file_location, bucket_name, bucket_key):
+def save_file_to_s3(file_location, bucket_name):
     '''
     Stores pandas dataframe as single .json file in save_df_to_s3_json
     -------
@@ -351,6 +351,7 @@ def save_file_to_s3(file_location, bucket_name, bucket_key):
     RETURNS
     None
     '''
+    bucket_key = file_location.split('-')[-1]
     aws = boto3.resource('s3')
     ww_all = aws.Bucket(bucket_name)
     ww_all.upload_file(file_location, bucket_key)
