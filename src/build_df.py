@@ -232,18 +232,17 @@ def create_bnb_df(file_location, city):
     bnb_df_reduced = pd.Dataframe - contains information relevant to wanderwell
     '''
     with open(file_location) as busfile:
-    bnb_json = json.load(busfile)
+        bnb_json = json.load(busfile)
     bnb_json_results = bnb_json['search_results']
     bnb_df = pd.io.json.json_normalize(bnb_json_results)
     bnb_df_ = bnb_df[bnb_df['listing.city'].str.lower() ==  city.lower()] 
     keep_cols = ['listing.bathrooms', 'listing.beds', 'listing.lat', 
                 'listing.lng', 'listing.reviews_count', 'listing.room_type_category', 'pricing_quote.total_price', 'listing.star_rating']
     bnb_df_reduced = bnb_df_[keep_cols]
-    bnb_df_reduced.columns = ['num_bathrooms', 'num_beds', 'lat', 'lng', 
+    bnb_df_reduced.columns = ['num_bathrooms', 'num_beds', 'lat', 'long', 
                             'reviews_count', 'room_type', 'price', 'rating']
     for value in bnb_df_reduced['room_type'].value_counts().index:
-        bnb_df_reduced['room_type-{}'.format(value)] =\ 
-                        bnb_df_reduced['room_type'] == value
+        bnb_df_reduced['room_type-{}'.format(value)] =  bnb_df_reduced['room_type'] == value
     return bnb_df_reduced
     
 def create_photos_df(df):
