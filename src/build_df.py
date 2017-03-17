@@ -302,9 +302,8 @@ def _find_min_distance(df1, df2):
     tmp1 = df1_['lat'].apply(lambda x: np.abs(x - df2_lat))
     tmp2 = df1_['long'].apply(lambda x: np.abs(x - df2_long))
     distances = np.sqrt(tmp1*tmp1 + tmp2*tmp2)
-    distances_min = distances.apply(np.min, axis=1)
-    df1_['dist'] = distances_min
-    return df1_
+    distances_sorted = np.sort(distances, axis=1)
+    return distances_sorted
 
 def build_grid(city_df, point_spacing, max_distance):
     '''
@@ -322,7 +321,6 @@ def build_grid(city_df, point_spacing, max_distance):
     psouth = city_df['lat'].min() - max_distance
     pwest = city_df['long'].max() + max_distance
     peast = city_df['long'].min() - max_distance
-    
     lats = np.arange(psouth, pnorth, point_spacing).reshape(-1, 1)
     longs = np.arange(peast, pwest, point_spacing).reshape(-1, 1)
     dummy = np.ones((lats.size, 1))
@@ -334,10 +332,8 @@ def build_grid(city_df, point_spacing, max_distance):
     grid = pd.DataFrame(empty[1:,:])
     grid.columns = ['lat', 'long']
     gridex = _find_min_distance(grid, city_df)
-    print grid.shape
-    print gridex['dist'].median()
-    grid = grid[gridex['dist'] < max_distance]
-    print gridex['dist'].describe()
+    distances_min = np.apply_along_axis(np.mean, 1, gridex[:,:3]) 
+    grid = grid[distances_min< max_distance]
     return grid
 
 
