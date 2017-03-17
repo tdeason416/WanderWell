@@ -21,7 +21,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 ### only run this code if you need to update from s3 bucket
-def extract_from_s3(bucket_name, local_folder):
+def extract_from_s3(bucket_name, local_folder, keyword):
     ''' 
     Saves all json files from s3 bucket to a local folder
     --------
@@ -32,6 +32,8 @@ def extract_from_s3(bucket_name, local_folder):
     RETURNS:
     None - output is sent to local file
     '''
+    if local_folder[-1] != '/':
+        local_folder += '/'
     fnames = []
     files = set(os.listdir(local_folder))
     aws = boto3.resource('s3')
@@ -40,10 +42,9 @@ def extract_from_s3(bucket_name, local_folder):
         fnames.append(name.key)
     for name in awsbucket.objects.all():
         fname = name.key
-        if fname not in files and '.json' in fname:
+        if fname not in files and '.json' in fname and keyword in fname:
             aws.meta.client.download_file(bucket_name,
                                 fname,'{}{}'.format(local_folder, fname))
-
 def create_flattened_dataframe(json_folder):
     '''
     Loads locally stored single line .json files into flattned dataframe
@@ -218,6 +219,7 @@ def remove_unwanted_POIs(df, city):
     zipdex = zips[zips].index
     for zipcode in zipdex:
         df_ = df_[df_['location.zip_code'] != zipcode]
+    df_.index = np.arange(df_.shape[0])
     return df_
 
 def create_bnb_df(file_location, city):
@@ -332,7 +334,7 @@ def build_grid(city_df, point_spacing, max_distance):
     grid = pd.DataFrame(empty[1:,:])
     grid.columns = ['lat', 'long']
     gridex = _find_min_distance(grid, city_df)
-    distances_min = np.apply_along_axis(np.mean, 1, gridex[:,:3]) 
+    distances_min = np.apply_along_axis(np.mean, 1, gridex[:,:4]) 
     grid = grid[distances_min< max_distance]
     return grid
 
