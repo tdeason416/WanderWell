@@ -220,6 +220,32 @@ def remove_unwanted_POIs(df, city):
         df_ = df_[df_['location.zip_code'] != zipcode]
     return df_
 
+def create_bnb_df(file_location, city):
+    '''
+    reads bnb api json file to pandas dataframe and reduces to information relevant to wanderwell
+    --------
+    PARAMETERS
+    file_location: string - location of bnb data
+    city: string -  name of city 
+    -------
+    RETURNS
+    bnb_df_reduced = pd.Dataframe - contains information relevant to wanderwell
+    '''
+    with open(file_location) as busfile:
+    bnb_json = json.load(busfile)
+    bnb_json_results = bnb_json['search_results']
+    bnb_df = pd.io.json.json_normalize(bnb_json_results)
+    bnb_df_ = bnb_df[bnb_df['listing.city'].str.lower() ==  city.lower()] 
+    keep_cols = ['listing.bathrooms', 'listing.beds', 'listing.lat', 
+                'listing.lng', 'listing.reviews_count', 'listing.room_type_category', 'pricing_quote.total_price', 'listing.star_rating']
+    bnb_df_reduced = bnb_df_[keep_cols]
+    bnb_df_reduced.columns = ['num_bathrooms', 'num_beds', 'lat', 'lng', 
+                            'reviews_count', 'room_type', 'price', 'rating']
+    for value in bnb_df_reduced['room_type'].value_counts().index:
+        bnb_df_reduced['room_type-{}'.format(value)] =\ 
+                        bnb_df_reduced['room_type'] == value
+    return bnb_df_reduced
+    
 def create_photos_df(df):
     '''
     Creates simple photos df associating photos with a bus id
@@ -281,8 +307,6 @@ def _find_min_distance(df1, df2):
     df1_['dist'] = distances_min
     return df1_
 
-
-
 def build_grid(city_df, point_spacing, max_distance):
     '''
     Builds grid of points geographically based on proximity to points
@@ -316,13 +340,6 @@ def build_grid(city_df, point_spacing, max_distance):
     grid = grid[gridex['dist'] < max_distance]
     print gridex['dist'].describe()
     return grid
-    
-
-    # city_grid = pd.DataFrame({'lat': np.arange(pbot, ptop, point_spacing)
-    # })
-
-    
-
 
 
 
