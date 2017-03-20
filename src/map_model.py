@@ -48,17 +48,17 @@ class CityValues(object):
         days: Pd.Series - integer timedelta in days to the endtime
         '''
         df_ = df.copy()
-        agg_dict = {'rating': ['count', 'median', 'std']}
+        agg_dict = {'rating': ['count', 'median', 'std'], 'date': ['min', 'max']}
         for num in self.time_periods:
             df_['date{}'.format(num)] = df_['date'] <= num * df_['date']
             agg_dict['date{}'.format(num)] = 'sum'
         grouped = df_.groupby('user').agg(agg_dict)
-        print grouped.head()
         grouped.fillna(0, inplace=True)
         grouped.columns = ['_'.join(col).strip() for col in grouped.columns.values]
+        grouped['date_range'] = grouped['date_max'] - grouped['date_min']
         for num in self.time_periods:
-            grouped['rpd_{}'.format(num)] = grouped['date{}-sum'.format(num)]/num
-            grouped.drop('date{}-sum'.format(num), axis=1, inplace=True)
+            grouped['rpd_{}'.format(num)] = grouped['date{}_sum'.format(num)]/num
+            grouped.drop('date{}_sum'.format(num), axis=1, inplace=True)
         return grouped
 
     def rate_comments(self):
@@ -75,18 +75,23 @@ class CityValues(object):
         no_text['date'] = (pd.Timestamp('2017, 2, 28') - no_text['date']).apply(lambda x: x.days)
         by_user = self._apply_rating_frequency(no_text)
         # by_bus = self._apply_rating_frequency(no_text)
-        by_user = by_user[by_user['rating-std'] != 0]
+        by_user = by_user[by_user['rating_std'] != 0]
         # by_bus = by_bus[by_bus['rating-std'] != 0]
+        fraud_user = by_user['date_range'] > 5
+        fraud_user = fraud_user + by_user['rating_count'] < 30
+        by_user = by_user[fraud_user]
         s_users = by_user['rating_count'] > 30
         pow_user = (by_user['rating_count'] > 30 + s_users)
         active_user = (by_user['rpd_30'] > .25 + s_users) * 1.5
-        endurance_user = (by_user['rpd_720'] > .033  + by_user['rpd_720'] > .05 + s_users) * 2.0
+        endurance_user = (by_user['rpd_720'] > .05 + s_users) * 2.0
         ###apply user rating weights
         by_user['weight'] = pow_user*1.25 + active_user*1.5 + endurance_user*2.0
-        by_user['weight'] = by_user['weight']*5 /by_user['weight'].sum()
+        by_user['weight'] = by_user['weight']*5 /by_user['weight'].sum() *100
+        print by_user.weight.value_counts()
         #### this is bad, dont do this
         for user_rating in by_user['weight'].value_counts().index:
             no_text['rating'] = user_rating * by_user['weight']
+        self.user_comment_ratings = no_text
 
 
 

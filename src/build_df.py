@@ -15,6 +15,7 @@ import boto3
 import os
 
 import json
+import re
 
 import numpy as np
 import pandas as pd
@@ -191,13 +192,14 @@ def _remove_outlier_zips(df, zip_col_key, min_poi_count):
     min_poi_count: int - min number of POIs in a zipcode for processing
     --------
     Returns
-    df_: pd.Dataframe - without outlier zip code POIS
+    df: pd.Dataframe - without outlier zip code POIS
     '''
-    df = df.copy()
+    df_ = df.copy()
     zips = df[zip_col_key].value_counts() < min_poi_count
     zipdex = zips[zips].index
+    print zipdex
     for zipcode in zipdex:
-        df_ = df[df[zip_col_key] != zipcode]
+        df_ = df_[df_[zip_col_key] != zipcode]
     return df_
 
 
@@ -260,16 +262,20 @@ def create_bnb_df(file_location, city):
     RETURNS
     bnb_df_reduced = pd.Dataframe - contains information relevant to wanderwell
     '''
+    zip_pattern = '[0-9][0-9][0-9][0-9][0-9]'
     with open(file_location) as busfile:
         bnb_json = json.load(busfile)
     bnb_json_results = bnb_json['search_results']
     bnb_df = pd.io.json.json_normalize(bnb_json_results)
+    bnb_df['zip'] = bnb_df['listing.public_address'].apply(
+                lambda x:  re.findall(zip_pattern, x)[0] if re.search(zip_pattern, x) else 0)
+    bnb_df = bnb_df[bnb_df['zip'] != 0]
     bnb_df_ = bnb_df[bnb_df['listing.city'].str.lower() ==  city.lower()] 
-    bnb_df_ = _remove_outlier_zips(bnb_df_, 'listing.neighborhood', 10)
-    keep_cols = ['listing.bathrooms', 'listing.beds', 'listing.lat', 
+    bnb_df_ = _remove_outlier_zips(bnb_df_, 'zip', 10)
+    keep_cols = ['listing.bathrooms', 'listing.beds', 'listing.lat', 'zip',
                 'listing.lng', 'listing.reviews_count', 'listing.room_type_category', 'pricing_quote.total_price', 'listing.star_rating']
     bnb_df_reduced = bnb_df_[keep_cols]
-    bnb_df_reduced.columns = ['num_bathrooms', 'num_beds', 'lat', 'long', 
+    bnb_df_reduced.columns = ['num_bathrooms', 'num_beds', 'lat','zip', 'long',
                             'reviews_count', 'room_type', 'price', 'rating']
     for value in bnb_df_reduced['room_type'].value_counts().index:
         bnb_df_reduced['room_type-{}'.format(value)] =  bnb_df_reduced['room_type'] == value
