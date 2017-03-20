@@ -61,15 +61,15 @@ class CityValues(object):
             grouped.drop('date{}_sum'.format(num), axis=1, inplace=True)
         return grouped
 
-    def rate_comments(self):
+    def rate_user_comments(self):
         '''
-        Assign rank to comments and users
+        Assign rank to comments by user
         --------
         Parameters
-        self
+        none
         --------
         Returns
-        something
+        none
         '''
         no_text = self.comments.drop('content', axis=1)
         no_text['date'] = (pd.Timestamp('2017, 2, 28') - no_text['date']).apply(lambda x: x.days)
