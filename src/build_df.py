@@ -385,7 +385,21 @@ def save_df_to_json(df, file_location):
     RETURNS
     None
     '''
-    df.to_json(file_location)
+    ### this is for converting a silly pandas format to something that is more like a normal json you may want it later
+    panda = df.copy()
+    pcols = panda.columns
+    pcols_c = cycle(pcols)
+    jlist = []
+    jdict = {}
+    for i in panda.values.flatten():
+        key = pcols_c.next()
+        jdict[key] = i
+        if key == pcols[-1]:
+            jlist.append(jdict)
+            jdict = {}
+            jint += 1
+    with open(file_location, 'w') as jfile:
+        json.dump(jlist, jfile)
 
 def save_file_to_s3(file_location, bucket_name):
     '''
@@ -403,4 +417,6 @@ def save_file_to_s3(file_location, bucket_name):
     aws = boto3.resource('s3')
     ww_all = aws.Bucket(bucket_name)
     ww_all.upload_file(file_location, bucket_key)
+
+
 
