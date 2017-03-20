@@ -20,6 +20,12 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+
+import sys
+# sys.setdefaultencoding() does not exist, here!
+reload(sys)  # Reload does the trick!
+sys.setdefaultencoding('UTF8')
+
 ### only run this code if you need to update from s3 bucket
 def extract_from_s3(bucket_name, local_folder, keyword):
     ''' 
@@ -131,12 +137,14 @@ def create_reviews_df(df):
     reviews_ = reviews_.reset_index()
     expanded_reviews = [reviews_.drop(0, axis=1), pd.DataFrame(list(reviews_[0].values))]
     reviews_df = pd.concat(expanded_reviews, axis=1)
+    print reviews_df.info()
     reviews_df['rating-date'] = reviews_df['rating-date'].apply(pd.Timestamp)
+    print reviews_df.info()
     reviews_df['rating'] = reviews_df['rating'].apply(lambda x: float(x.split()[0]))
     reviews_df.drop('user_location', axis=1, inplace=True)
     reviews_df['level_1'] = reviews_df['level_1'].apply(lambda x: int(x.split('-')[-1]))
-    reviews_df.columns = ['bus_id', 'review no', 'content', 'rating', 'date', 'user']
-    return reviews_df
+    reviews_df.columns = ['bus_id', 'review_no', 'content', 'rating', 'date', 'user']
+    return reviews_df.set_index('review_no')
 
 def _filter_items(filt_list, cats_df):
     '''

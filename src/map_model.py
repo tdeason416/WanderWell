@@ -29,7 +29,7 @@ class CityValues(object):
         self.general = pd.read_json('data/{}-clean.json'.format(city.lower()))
         self.bnb = pd.read_json('data/{}-bnb.json'.format(city.lower()))
         self.grid = pd.read_json('data/{}-grid.json'.format(city.lower()))
-        self.comments = pd.read_json('data/{}-comments'.format(city.lower()))
+        self.comments = pd.read_json('data/{}-comments.json'.format(city.lower()))
         self.time_periods = [30, 90, 180, 360, 720]
         if endtime is None:
             self.endtime = pd.Timestamp('2017, 3, 5')
@@ -84,7 +84,6 @@ class CityValues(object):
         #### this is bad, dont do this
         for user_rating in by_user['weight'].value_counts().index:
             no_text['rating'] = user_rating * by_user['weight']
-        
 
 
 
