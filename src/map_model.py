@@ -47,10 +47,13 @@ class CityValues(object):
         Returns
         days: Pd.Series - integer timedelta in days to the endtime
         '''
+        df_ = df.copy()
         agg_dict = {'rating': ['count', 'median', 'std']}
         for num in self.time_periods:
+            df_['date{}'.format(num)] = df_['date'] <= num * df_['date']
             agg_dict['date{}'.format(num)] = 'sum'
-        grouped = df.groupby('user').agg(agg_dict)
+        grouped = df_.groupby('user').agg(agg_dict)
+        print grouped.head()
         grouped.fillna(0, inplace=True)
         grouped.columns = ['_'.join(col).strip() for col in grouped.columns.values]
         for num in self.time_periods:

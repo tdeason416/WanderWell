@@ -21,10 +21,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-import sys
-# sys.setdefaultencoding() does not exist, here!
-reload(sys)  # Reload does the trick!
-sys.setdefaultencoding('UTF8')
+# import sys
+# # sys.setdefaultencoding() does not exist, here!
+# reload(sys)  # Reload does the trick!
+# sys.setdefaultencoding('UTF8')
 
 ### only run this code if you need to update from s3 bucket
 def extract_from_s3(bucket_name, local_folder, keyword):
@@ -137,9 +137,7 @@ def create_reviews_df(df):
     reviews_ = reviews_.reset_index()
     expanded_reviews = [reviews_.drop(0, axis=1), pd.DataFrame(list(reviews_[0].values))]
     reviews_df = pd.concat(expanded_reviews, axis=1)
-    print reviews_df.info()
     reviews_df['rating-date'] = reviews_df['rating-date'].apply(pd.Timestamp)
-    print reviews_df.info()
     reviews_df['rating'] = reviews_df['rating'].apply(lambda x: float(x.split()[0]))
     reviews_df.drop('user_location', axis=1, inplace=True)
     reviews_df['level_1'] = reviews_df['level_1'].apply(lambda x: int(x.split('-')[-1]))
@@ -182,6 +180,27 @@ def _apply_filter(df, cat_set, cat):
     df_[cat] = df_[cat] + df_['category-2'].isin(cat_set).fillna(False)
     return df_
 
+
+def _remove_outlier_zips(df, zip_col_key, min_poi_count):
+    '''
+    Removes items from dataframe where there are less then n pois in that zip code
+    --------
+    Parameters
+    df: pddataframe - dataframe to be cleaned
+    zip_col_key: str - name of column containing zip codes
+    min_poi_count: int - min number of POIs in a zipcode for processing
+    --------
+    Returns
+    df_: pd.Dataframe - without outlier zip code POIS
+    '''
+    df = df.copy()
+    zips = df[zip_col_key].value_counts() < min_poi_count
+    zipdex = zips[zips].index
+    for zipcode in zipdex:
+        df_ = df[df[zip_col_key] != zipcode]
+    return df_
+
+
 def remove_unwanted_POIs(df, city):
     '''
     Removes non food/coffee/bar/recreation points of interest from dataframe
@@ -202,7 +221,6 @@ def remove_unwanted_POIs(df, city):
     #--------#
     #### remove all entries which are not in the target city
     df_ = df[df['location.city'].str.lower() == city.lower()]
-
     #### create catagories table
     cat_df = pd.read_json(catfile)
     cat_key = cat_df.set_index('alias')['parents']
@@ -223,11 +241,12 @@ def remove_unwanted_POIs(df, city):
         df_ = _apply_filter(df_, value, key)
         bools |= df_[key]
     df_ = df_[bools > 0]
-    zips = df_['location.zip_code'].value_counts() < 10
-    zipdex = zips[zips].index
-    for zipcode in zipdex:
-        df_ = df_[df_['location.zip_code'] != zipcode]
-    df_.index = np.arange(df_.shape[0])
+    df = _remove_outlier_zips(df_, 'location.zip_code', 10)
+    # zips = df_['location.zip_code'].value_counts() < 10
+    # zipdex = zips[zips].index
+    # for zipcode in zipdex:
+    #     df_ = df_[df_['location.zip_code'] != zipcode]
+    # df_.index = np.arange(df_.shape[0])
     return df_
 
 def create_bnb_df(file_location, city):
@@ -246,6 +265,7 @@ def create_bnb_df(file_location, city):
     bnb_json_results = bnb_json['search_results']
     bnb_df = pd.io.json.json_normalize(bnb_json_results)
     bnb_df_ = bnb_df[bnb_df['listing.city'].str.lower() ==  city.lower()] 
+    bnb_df_ = _remove_outlier_zips(bnb_df_, 'listing.neighborhood', 10)
     keep_cols = ['listing.bathrooms', 'listing.beds', 'listing.lat', 
                 'listing.lng', 'listing.reviews_count', 'listing.room_type_category', 'pricing_quote.total_price', 'listing.star_rating']
     bnb_df_reduced = bnb_df_[keep_cols]
