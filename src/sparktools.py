@@ -11,6 +11,14 @@ from pyspark.ml.feature import HashingTF, IDF, Tokenizer, StopWordsRemover
 from pyspark.ml.classification import NaiveBayes
 # from pyspark.ml.feature import NGram # maybe
 
+from pyspark.ml import Pipeline
+from pyspark.ml.classification import RandomForestClassifier
+from pyspark.ml.tuning import CrossValidator, ParamGridBuilder
+from pyspark.ml.evaluation import MulticlassClassificationEvaluator
+
+from pyspark.ml.classification import GBTClassifier
+from pyspark.ml.feature import StringIndexer, VectorIndexer
+
 
 
 class SparkNLPClassifier(object):
@@ -34,13 +42,14 @@ class SparkNLPClassifier(object):
             .getOrCreate() 
         if not local_file:
             train_url = 's3n://wanderwell-ready/yelp_academic_reviews.json'
-            self.train = self.spark.read.json(train_url)
+            self.data = self.spark.read.json(train_url)
         else:
-            self.train = self.spark.read.json(local_file)
-        self.train_popular = None
-        self.train_positive = None
+            self.data = self.spark.read.json(local_file)
+        self.train = None
+        self.train_split = None
+        self.model = None 
 
-    def generate_binary_labels(self, df, label, thres=0):
+    def generate_binary_labels(self, df, label, thres=1):
         '''
         Converts given label in dataframe into binary value, and drops all other labels
         '''
@@ -78,18 +87,15 @@ class SparkNLPClassifier(object):
         dataset_pos = df.filter('label = 1').orderBy(rand()).limit(mincount)
         return dataset_pos.union(dataset_neg)
 
-    def train_vectorize(self):
+    def train_vectorize(self, thres=1, n_features=20):
         '''
         Applies vectorize to the training set
         '''
-        self.train_popular = self.generate_binary_labels(self.train, 'useful + funny + cool', 3)
-        self.train_popular = self.split_labeled_sets(self.train_popular, 'useful + funny + cool')
-        self.train_popular = self.vectorize(self.train_popular, 2500)
-        self.train_positive = self.generate_binary_labels(self.train, 'stars', 4)
-        self.train_positive = self.split_labeled_sets(self.train_positive, 'stars')
-        self.train_positive = self.vectorize(self.train_positive, 2500)
+        self.train = self.generate_binary_labels(self.data, label, thres)
+        self.train = self.split_labeled_sets(self.train, label)
+        self.train = self.vectorize(self.train, n_features)
 
-    def vectorize(self, df, n_features=2500):
+    def vectorize(self, df, n_features=30):
         '''
         generates vectorized features from the self.traindf dataframe
         --------
@@ -116,12 +122,140 @@ class SparkNLPClassifier(object):
         idfModel = idf.fit(featurizedData)
         rescaledData = idfModel.transform(featurizedData)
         return rescaledData
-    
-    def train(self):
-        '''
 
+    def train_test_split(self, test_size= .2):
         '''
-        pass
+        Split dataset into training values and testing values
+        --------
+        Parameters
+        test_size: float - percent of data to use for testing
+        --------
+        Returns
+        test_set: pulls test set from training_values
+        '''
+        training_data, testing_data = self.train.randomSplit([1-test_size, test_size])
+        self.train = training_data
+        return testing_data
+
+    def cross_val_eval(self, df, model_classifier, paramgrid, number_of_folds=5):
+        '''
+        Performs Kfold split on training set for cross validation
+        --------
+        Parameters
+        df: spark.df - training df to cross_val
+        model_classifier - spark ML classsifier
+        number_of_folds: int - number of cross val cells
+        --------
+        Returns
+        None - populates the self.Kfolds arguement
+        '''
+        model = model_classifier(labelCol='label', featuresCol='features')
+        evaluator = MulticlassClassificationEvaluator()
+        pipe = Pipeline(stages=[model])
+        crossval = CrossValidator(
+                        estimator= pipe,
+                        estimatorParamMaps= paramgrid,
+                        evaluator= evaluator,
+                        numFolds= number_of_folds)
+        return crossval.fit(df)
+
+
+    def train_boosted_forest(self, depth=3, n_trees=100, learning_rate= .01):
+        '''
+        train dataset on boosted decision trees
+        --------
+        Parameters
+        depth: int -  max_allowable depth of decision tree leafs
+        n_trees: int - max number of iterations
+        learning_rate: int - rate which the model fits
+        --------
+        '''
+        featureIndexer = \
+        VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=4).fit(self.train)
+        gbr = GBTClassifier(labelCol='label', featuresCol="features", probabilityCol="probability",
+                             maxDepth=depth, maxIter=n_trees, stepSize=learning_rate, maxMemoryInMB=16000)
+        pipeline = Pipeline(stages=[featureIndexer, gbr])
+        # Train model.  This also runs the indexer.
+        self.model = pipeline.fit(self.train)
+
+    def train_random_forest(self, depth=3, n_trees=100):
+        '''
+        train dataset on random forest classifiers
+        --------
+        Parameters
+        depth: int -  max_allowable depth of decision tree leafs
+        n_trees: int - max number of trees
+        --------
+        '''
+        featureIndexer = \
+        VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=4).fit(self.train)
+        gbr = RandomForestClassifier(labelCol='label', featuresCol="features", probabilityCol="probability",
+                                maxDepth=depth, numTrees=n_trees, maxMemoryInMB=16000)
+        pipeline = Pipeline(stages=[featureIndexer, gbr])
+        # Train model.  This also runs the indexer.
+        self.model = pipeline.fit(self.train)
+
+    def train_naive_bayes(self, smoothing= 1.0):
+        '''
+        train dataset on naive bayes algo
+        --------
+        Parameters
+        smoothing = float
+        --------
+        Returns
+        None
+        '''
+        # create the trainer and set its parameters
+        nb = NaiveBayes(smoothing=smoothing, modelType="multinomial")
+        self.model = nb.fit(self.train)
+
+    def predict(self, test):
+        '''
+        Generates probabilties for test set based on the fitted models of this class
+        --------
+        Parameters
+        test: spark.df - test data
+        --------
+        Returns
+        predict - spark.df with probabbility row added
+        '''
+        predict = self.model.transform(test)
+        return predict
+
+    def generate_confusion_matrix(self, thres):
+        '''
+        generates confusion matrix from trained model
+        --------
+        Parameters
+        thres: int - threshold probability for positve outcome
+        --------
+        Returns
+        dict - containing rate of probs at the given thres
+        '''
+        
+
+
+    def evaluate_model(test, thres_list):
+        '''
+        generate tpr, fpr, fnr, and tpr for each threshold
+        --------
+        Parameters:
+        test: spark.df post vectorization
+        thres_list: list containing threshold values
+        --------
+        Returns:
+        list-of-dict - containing rate of pthres, tp, fp, fn, tn 
+        '''
+        acclist = []
+        for thres in thres_list:
+            acclist.append(self.gen_confusion_matrix(thres))
+
+
+        # # compute accuracy on the test set
+        # evaluator = MulticlassClassificationEvaluator(labelCol="label", predictionCol="prediction",
+        #                                             metricName="accuracy")
+        # accuracy = evaluator.evaluate(predictions)
+        # print("Test set accuracy = " + str(accuracy))
 
     def _rem_non_letters(self, text):
         '''
