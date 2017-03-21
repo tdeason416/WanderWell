@@ -34,9 +34,9 @@ class SparkNLPClassifier(object):
             .getOrCreate() 
         if not local_file:
             train_url = 's3n://wanderwell-ready/yelp_academic_reviews.json'
-            self.train = spark.read.json(train_url)
+            self.train = self.spark.read.json(train_url)
         else:
-            self.df = spark.read.json(local_file)
+            self.train = self.spark.read.json(local_file)
         self.train_popular = None
         self.train_positive = None
 
@@ -44,10 +44,15 @@ class SparkNLPClassifier(object):
         '''
         Converts given label in dataframe into binary value, and drops all other labels
         '''
+        def _rem_non_letters(text):
+            lets = []
+            ntext = text.lower()
+            ntext = re.sub("[^a-z' ]", ' ', ntext)
+            return ntext.split()
         self.spark.udf.register('imbin', lambda x: 1 if x >= thres else 0)
-        self.spark.udf.register('words_only', self._rem_non_letters)
+        self.spark.udf.register('words_only', _rem_non_letters)
         df.registerTempTable('df')
-        r_bin =  self.spark.sql('''
+        r_bin = self.spark.sql('''
             SELECT array(words_only(text)) as content, int(imbin({})) as label
             FROM df
                     '''.format(label))
@@ -81,7 +86,7 @@ class SparkNLPClassifier(object):
         self.train_popular = self.split_labeled_sets(self.train_popular, 'useful + funny + cool')
         self.train_popular = self.vectorize(self.train_popular, 2500)
         self.train_positive = self.generate_binary_labels(self.train, 'stars', 4)
-        self.train_positive = self.split_labeled_sets(self.train, 'stars')
+        self.train_positive = self.split_labeled_sets(self.train_positive, 'stars')
         self.train_positive = self.vectorize(self.train_positive, 2500)
 
     def vectorize(self, df, n_features=2500):
@@ -114,7 +119,7 @@ class SparkNLPClassifier(object):
     
     def train(self):
         '''
-        
+
         '''
         pass
 
