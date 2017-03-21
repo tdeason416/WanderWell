@@ -20,6 +20,7 @@ import re
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from itertools import cycle
 
 
 # import sys
@@ -397,7 +398,6 @@ def save_df_to_json(df, file_location):
         if key == pcols[-1]:
             jlist.append(jdict)
             jdict = {}
-            jint += 1
     with open(file_location, 'w') as jfile:
         json.dump(jlist, jfile)
 
