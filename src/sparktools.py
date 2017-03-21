@@ -22,7 +22,7 @@ class SparkNLPClassifier(object):
     '''
     this allows you to classify a spark object
     '''
-    def __init__(self, local_file=None, s3_bucket='False'):
+    def __init__(self, local_file=False):
         '''
         Generates Spark Dataframe from wander-wall for NLP analysis
         --------
@@ -36,7 +36,7 @@ class SparkNLPClassifier(object):
         self.spark = spark = ps.sql.SparkSession.builder \
             .appName("yelp_explore") \
             .getOrCreate() 
-        if local_file is None
+        if not local_file:
             train_url = 's3n://wanderwell-ready/yelp_academic_reviews.json'
             self.train = spark.read.json(train_url)
             self.test_df = None 
@@ -55,14 +55,14 @@ class SparkNLPClassifier(object):
         '''
         self.spark.udf.register('imbin', lambda x: 1 if x >= thres else 0)
         self.spark.udf.register('mkascii', self.rem_non_ascii)
-        train_df = self.train_df.copy()
-        yelp.registerTempTable('train')
+        train_df = self.train.copy()
+        train_df.registerTempTable('train')
         r_bin =  self.spark.sql('''
             SELECT array(mkascii(text)) as content, int(imbin({})) as label
             FROM train
                     '''.format(label))
-        mincount_pos = r_bin.filter('label = 1')count()
-        mincouint_neg = r_bin.filter('label = 0')count()
+        mincount_pos = r_bin.filter('label = 1').count()
+        mincount_neg = r_bin.filter('label = 0').count()
         if mincount_pos > mincount_neg:
             mincount = mincount_neg
         else:
