@@ -19,8 +19,6 @@ from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pyspark.ml.classification import GBTClassifier
 from pyspark.ml.feature import StringIndexer, VectorIndexer
 
-
-
 class SparkNLPClassifier(object):
     '''
     Builds trained model in spark based on labeled yelp_academic_dataset, 
@@ -159,7 +157,6 @@ class SparkNLPClassifier(object):
                         numFolds= number_of_folds)
         return crossval.fit(df)
 
-
     def train_boosted_regression(self, depth=3, n_trees=100, learning_rate= .01):
         '''
         train dataset on boosted decision trees
@@ -235,11 +232,11 @@ class SparkNLPClassifier(object):
         cm = {}
         cm['thres'] = thres
         prediction = self.predict(test)
-        self.spark.udf.register('flbin', lambda x: 1 if x > thres else 0)
-        # print prediction.select('probability').show(20)
+        self.spark.udf.register('flbin', lambda x: 1 if x[1] > thres else 0) # this does not work
+        print prediction.select('probability').show(20)
         prediction.registerTempTable('prob')
         cfm = self.spark.sql('''SELECT flbin(probability) as pred, label FROM prob''')
-        # print cfm.select('pred', 'label').show(20)
+        print cfm.select('pred', 'label').show(20)
         cfm.registerTempTable('cfm')
         sql_temp = 'SELECT label - pred as result FROM cfm WHERE label = {}'
         is_pos = self.spark.sql(sql_temp.format(1))
@@ -250,21 +247,34 @@ class SparkNLPClassifier(object):
         cm['tn'] = is_neg.count() - cm['fn']
         return cm
 
-
-    def evaluate_model(self, test, thres_list):
+    def evaluate_model(self, test, number_of_iterations):
         '''
         generate tpr, fpr, fnr, and tpr for each threshold
         --------
         Parameters:
         test: spark.df post vectorization
-        thres_list: list containing threshold values
+        number_of_iterations: number of threshold values between .001 and 1.00 utilized in roc curve
         --------
         Returns:
         list-of-dict - containing rate of pthres, tp, fp, fn, tn 
         '''
         acclist = []
-        for thres in thres_list:
-            acclist.append(self.generate_confusion_matrix(test, thres))
+        self.spark.udf.register('getsecond', lambda x: x[1])
+        probs = self.predict(test)
+        probs.registerTempTable('probs')
+        tlat = '''SELECT getsecond(probability) as probs, label FROM probs WHERE {} {} 1'''
+        c_true = self.spark.sql(tlat.format('label', '>='))
+        c_false = self.spark.sql(tlat.format('label', '<'))
+        for thres in np.linspace(.001, .999, number_of_iterations):
+            cfdict = {}
+            cfdict['thres'] = thres
+            cfdict['tp'] = c_true.filter('probs > {}'.format(thres)).count()
+            cfdict['fn'] = c_true.filter('probs < {}'.format(thres)).count()
+            cfdict['fp'] = c_false.filter('probs > {}'.format(thres)).count()
+            cfdict['fn'] = c_false.filter('probs < {}'.format(thres)).count()
+            cfdict['tpr'] = cfdict['tp']/(cfdict['tp'] + cfdict['fn'])
+            cfdict['fpr'] = cfdict['fp']/(cfdict['fp'] + cfdict['tn'])
+            acclist.append(cfdict)
         return acclist
 
     def _rem_non_letters(self, text):
@@ -276,7 +286,6 @@ class SparkNLPClassifier(object):
         --------
         Returns: ntext.split() - list of lowercase single word strings
         '''
-        lets = []
         ntext = text.lower()
         ntext = re.sub("[^a-z' ]", ' ', ntext)
         return ntext.split()
