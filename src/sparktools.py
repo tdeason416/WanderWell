@@ -39,7 +39,7 @@ class SparkNLPClassifier(object):
             .appName("reviews_nlp") \
             .getOrCreate() 
         if not local_file:
-            train_url = 's3n://wanderwell-ready/yelp_academic_reviews.json'
+            train_url = 's3n://wanderwell-ready/yelp_academic_dataset_review.json'
             self.data = self.spark.read.json(train_url)
         else:
             self.data = self.spark.read.json(local_file)
@@ -157,7 +157,8 @@ class SparkNLPClassifier(object):
                         numFolds= number_of_folds)
         return crossval.fit(df)
 
-    def train_boosted_regression(self, depth=3, n_trees=100, learning_rate= .01):
+    def train_boosted_regression(self, depth=3, n_trees=100, 
+                    learning_rate= .01, max_cats= 6):
         '''
         train dataset on boosted decision trees
         --------
@@ -168,14 +169,14 @@ class SparkNLPClassifier(object):
         --------
         '''
         featureIndexer = \
-        VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=4).fit(self.train)
+        VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=max_cats).fit(self.train)
         gbr = GBTClassifier(labelCol='label', featuresCol="features",
-                             maxDepth=depth, maxIter=n_trees, stepSize=learning_rate, maxMemoryInMB=16000)
+                             maxDepth=depth, maxIter=n_trees, stepSize=learning_rate, maxMemoryInMB=10000)
         pipeline = Pipeline(stages=[featureIndexer, gbr])
         # Train model.  This also runs the indexer.
         self.model = pipeline.fit(self.train)
 
-    def train_random_forest(self, depth=3, n_trees=100):
+    def train_random_forest(self, depth=3, n_trees=100, max_cats= 6):
         '''
         train dataset on random forest classifiers
         --------
@@ -185,9 +186,9 @@ class SparkNLPClassifier(object):
         --------
         '''
         featureIndexer = \
-        VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=4).fit(self.train)
+        VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=max_cats).fit(self.train)
         gbr = RandomForestClassifier(labelCol='label', featuresCol="features", probabilityCol="probability",
-                                maxDepth=depth, numTrees=n_trees, maxMemoryInMB=16000)
+                                maxDepth=depth, numTrees=n_trees, maxMemoryInMB=10000)
         pipeline = Pipeline(stages=[featureIndexer, gbr])
         # Train model.  This also runs the indexer.
         self.model = pipeline.fit(self.train)
@@ -256,24 +257,25 @@ class SparkNLPClassifier(object):
         number_of_iterations: number of threshold values between .001 and 1.00 utilized in roc curve
         --------
         Returns:
-        list-of-dict - containing rate of pthres, tp, fp, fn, tn 
+        list-of-dict - containing rate of pthres, tp, fp, fn, tn
         '''
         acclist = []
         self.spark.udf.register('getsecond', lambda x: x[1])
         probs = self.predict(test)
         probs.registerTempTable('probs')
-        tlat = '''SELECT getsecond(probability) as probs, label FROM probs WHERE {} {} 1'''
-        c_true = self.spark.sql(tlat.format('label', '>='))
-        c_false = self.spark.sql(tlat.format('label', '<'))
+        tlat = '''SELECT getsecond(probability) as probs, label FROM probs WHERE {} {}'''
+        # print tlat.format('label', '> 0')
+        c_true = self.spark.sql(tlat.format('label', '> 0'))
+        c_false = self.spark.sql(tlat.format('label', '< 1'))
         for thres in np.linspace(.001, .999, number_of_iterations):
-            cfdict = {}
-            cfdict['thres'] = thres
+            cfdict = {'thres': thres}
             cfdict['tp'] = c_true.filter('probs > {}'.format(thres)).count()
             cfdict['fn'] = c_true.filter('probs < {}'.format(thres)).count()
             cfdict['fp'] = c_false.filter('probs > {}'.format(thres)).count()
             cfdict['fn'] = c_false.filter('probs < {}'.format(thres)).count()
             cfdict['tpr'] = cfdict['tp']/(cfdict['tp'] + cfdict['fn'])
             cfdict['fpr'] = cfdict['fp']/(cfdict['fp'] + cfdict['tn'])
+            print 'tp= {}, fn= {}, fp= {}'.format(cfdict['tp'], cfdict['fn'], cfdict['fp']) 
             acclist.append(cfdict)
         return acclist
 
