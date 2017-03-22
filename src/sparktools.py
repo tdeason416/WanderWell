@@ -87,7 +87,7 @@ class SparkNLPClassifier(object):
         dataset_pos = df.filter('label = 1').orderBy(rand()).limit(mincount)
         return dataset_pos.union(dataset_neg)
 
-    def train_vectorize(self, thres=1, n_features=20):
+    def vectorize_train(self, label, thres=1, n_features=20):
         '''
         Applies vectorize to the training set
         '''
@@ -160,7 +160,7 @@ class SparkNLPClassifier(object):
         return crossval.fit(df)
 
 
-    def train_boosted_forest(self, depth=3, n_trees=100, learning_rate= .01):
+    def train_boosted_regression(self, depth=3, n_trees=100, learning_rate= .01):
         '''
         train dataset on boosted decision trees
         --------
@@ -172,7 +172,7 @@ class SparkNLPClassifier(object):
         '''
         featureIndexer = \
         VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=4).fit(self.train)
-        gbr = GBTClassifier(labelCol='label', featuresCol="features", probabilityCol="probability",
+        gbr = GBTClassifier(labelCol='label', featuresCol="features",
                              maxDepth=depth, maxIter=n_trees, stepSize=learning_rate, maxMemoryInMB=16000)
         pipeline = Pipeline(stages=[featureIndexer, gbr])
         # Train model.  This also runs the indexer.
@@ -219,23 +219,39 @@ class SparkNLPClassifier(object):
         Returns
         predict - spark.df with probabbility row added
         '''
-        predict = self.model.transform(test)
-        return predict
+        probability = self.model.transform(test)
+        return probability
 
-    def generate_confusion_matrix(self, thres):
+    def generate_confusion_matrix(self, test, thres):
         '''
         generates confusion matrix from trained model
         --------
         Parameters
-        thres: int - threshold probability for positve outcome
+        thres: float - threshold probability for positve outcome
         --------
         Returns
         dict - containing rate of probs at the given thres
         '''
-        
+        cm = {}
+        cm['thres'] = thres
+        prediction = self.predict(test)
+        self.spark.udf.register('flbin', lambda x: 1 if x > thres else 0)
+        # print prediction.select('probability').show(20)
+        prediction.registerTempTable('prob')
+        cfm = self.spark.sql('''SELECT flbin(probability) as pred, label FROM prob''')
+        # print cfm.select('pred', 'label').show(20)
+        cfm.registerTempTable('cfm')
+        sql_temp = 'SELECT label - pred as result FROM cfm WHERE label = {}'
+        is_pos = self.spark.sql(sql_temp.format(1))
+        is_neg = self.spark.sql(sql_temp.format(0))
+        cm['tp'] = is_pos.filter('result = 0').count()
+        cm['fp'] = is_pos.count() - cm['tp']
+        cm['fn'] = is_neg.filter('result = -1').count()
+        cm['tn'] = is_neg.count() - cm['fn']
+        return cm
 
 
-    def evaluate_model(test, thres_list):
+    def evaluate_model(self, test, thres_list):
         '''
         generate tpr, fpr, fnr, and tpr for each threshold
         --------
@@ -248,14 +264,8 @@ class SparkNLPClassifier(object):
         '''
         acclist = []
         for thres in thres_list:
-            acclist.append(self.gen_confusion_matrix(thres))
-
-
-        # # compute accuracy on the test set
-        # evaluator = MulticlassClassificationEvaluator(labelCol="label", predictionCol="prediction",
-        #                                             metricName="accuracy")
-        # accuracy = evaluator.evaluate(predictions)
-        # print("Test set accuracy = " + str(accuracy))
+            acclist.append(self.generate_confusion_matrix(test, thres))
+        return acclist
 
     def _rem_non_letters(self, text):
         '''
@@ -268,6 +278,6 @@ class SparkNLPClassifier(object):
         '''
         lets = []
         ntext = text.lower()
-        ntext = re.sub("[^a-z' ]",' ',ntext)
+        ntext = re.sub("[^a-z' ]", ' ', ntext)
         return ntext.split()
 
