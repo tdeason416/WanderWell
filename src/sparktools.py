@@ -14,7 +14,7 @@ from pyspark.ml.classification import NaiveBayes
 from pyspark.ml import Pipeline
 from pyspark.ml.classification import RandomForestClassifier
 from pyspark.ml.tuning import CrossValidator, ParamGridBuilder
-from pyspark.ml.evaluation import MulticlassClassificationEvaluator
+from pyspark.ml.evaluation import BinaryClassificationEvaluator
 
 from pyspark.ml.classification import GBTClassifier
 from pyspark.ml.feature import StringIndexer, VectorIndexer
@@ -116,6 +116,7 @@ class SparkNLPClassifier(object):
         wordsData = tokenizer.transform(stop_strings)
         hashingTF = HashingTF(inputCol="words", outputCol="rawFeatures", numFeatures=n_features)
         featurizedData = hashingTF.transform(wordsData)
+        featurizedData.cache()
         idf = IDF(inputCol="rawFeatures", outputCol="features")
         idfModel = idf.fit(featurizedData)
         rescaledData = idfModel.transform(featurizedData)
@@ -135,6 +136,9 @@ class SparkNLPClassifier(object):
         self.train = training_data
         return testing_data
 
+    def generate_param_map
+
+
     def cross_val_eval(self, df, model_classifier, paramgrid, number_of_folds=5):
         '''
         Performs Kfold split on training set for cross validation
@@ -148,7 +152,7 @@ class SparkNLPClassifier(object):
         None - populates the self.Kfolds arguement
         '''
         model = model_classifier(labelCol='label', featuresCol='features')
-        evaluator = MulticlassClassificationEvaluator()
+        evaluator = BinaryClassificationEvaluator()
         pipe = Pipeline(stages=[model])
         crossval = CrossValidator(
                         estimator= pipe,
@@ -220,34 +224,6 @@ class SparkNLPClassifier(object):
         probability = self.model.transform(test)
         return probability
 
-    def generate_confusion_matrix(self, test, thres):
-        '''
-        generates confusion matrix from trained model
-        --------
-        Parameters
-        thres: float - threshold probability for positve outcome
-        --------
-        Returns
-        dict - containing rate of probs at the given thres
-        '''
-        cm = {}
-        cm['thres'] = thres
-        prediction = self.predict(test)
-        self.spark.udf.register('flbin', lambda x: 1 if x[1] > thres else 0) # this does not work
-        print prediction.select('probability').show(20)
-        prediction.registerTempTable('prob')
-        cfm = self.spark.sql('''SELECT flbin(probability) as pred, label FROM prob''')
-        print cfm.select('pred', 'label').show(20)
-        cfm.registerTempTable('cfm')
-        sql_temp = 'SELECT label - pred as result FROM cfm WHERE label = {}'
-        is_pos = self.spark.sql(sql_temp.format(1))
-        is_neg = self.spark.sql(sql_temp.format(0))
-        cm['tp'] = is_pos.filter('result = 0').count()
-        cm['fp'] = is_pos.count() - cm['tp']
-        cm['fn'] = is_neg.filter('result = -1').count()
-        cm['tn'] = is_neg.count() - cm['fn']
-        return cm
-
     def evaluate_model(self, test, number_of_iterations):
         '''
         generate tpr, fpr, fnr, and tpr for each threshold
@@ -267,7 +243,7 @@ class SparkNLPClassifier(object):
         # print tlat.format('label', '> 0')
         c_true = self.spark.sql(tlat.format('label', '> 0'))
         c_false = self.spark.sql(tlat.format('label', '< 1'))
-        for thres in np.linspace(.001, .999, number_of_iterations):
+        for thres in np.linspace(.01, .99, number_of_iterations):
             cfdict = {'thres': thres}
             cfdict['tp'] = c_true.filter('probs > {}'.format(thres)).count()
             cfdict['fn'] = c_true.filter('probs < {}'.format(thres)).count()
@@ -275,7 +251,7 @@ class SparkNLPClassifier(object):
             cfdict['fn'] = c_false.filter('probs < {}'.format(thres)).count()
             cfdict['tpr'] = cfdict['tp']/(cfdict['tp'] + cfdict['fn'])
             cfdict['fpr'] = cfdict['fp']/(cfdict['fp'] + cfdict['tn'])
-            print 'tp= {}, fn= {}, fp= {}'.format(cfdict['tp'], cfdict['fn'], cfdict['fp']) 
+            print 'tp= {}, fn= {}, fp= {}'.format(cfdict['tp'], cfdict['fn'], cfdict['fp'])
             acclist.append(cfdict)
         return acclist
 
