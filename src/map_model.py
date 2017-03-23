@@ -63,6 +63,8 @@ class CityValues(object):
             df_['date{}'.format(num)] = df_['date'] <= num * df_['date']
             agg_dict['date{}'.format(num)] = 'sum'
         grouped = df_.groupby('user').agg(agg_dict)
+        print df['user'].value_counts().nlargest(20)
+        print grouped.index.shape[0]
         grouped.fillna(0, inplace=True)
         grouped.columns = ['_'.join(col).strip() for col in grouped.columns.values]
         grouped['date_range'] = grouped['date_max'] - grouped['date_min']
@@ -92,28 +94,38 @@ class CityValues(object):
         fraud_user = fraud_user + by_user['rating_count'] < 30
         by_user = by_user[fraud_user]
         s_users = by_user['rating_count'] > 30
+        print by_user['rating_count'].nlargest(20)
         pow_user = (by_user['rating_count'] > 30 + s_users)
         active_user = (by_user['rpd_30'] > .25 + s_users) * 1.5
         endurance_user = (by_user['rpd_720'] > .05 + s_users) * 2.0
         ###apply user rating weights
-        by_user['weight'] = pow_user*1.25 + active_user*1.5 + endurance_user*2.0
-        by_user['weight'] = by_user['weight']*5 /by_user['weight'].sum() *100
+        # print pow_user.sum()
+        # print active_user.sum()
+        # print endurance_user.sum()
+        by_user['weight'] = (pow_user*1.25 + active_user*1.5 + endurance_user*2.0) * fraud_user
+        # by_user['weight'] = by_user['weight']*5 /by_user['weight'].sum() *100
         print by_user.weight.value_counts()
         #### this is bad, dont do this
         for user_rating in by_user['weight'].value_counts().index:
-            no_text['rating'] = user_rating * by_user['weight']
+            no_text['weighted_rating'] = user_rating * no_text['rating']
         self.user_comment_ratings = no_text
 
-    def Assign_poi_ratings(self):
+    def Assign_poi_ratings(self, trending_boost):
         '''
         Assigns user reviews to buisness locations
         --------
         Parameters
-        
+        trending_boost: float
         --------
         Returns
-
+        biz_ratings: pd.DataFrame - ratings of buisneses
         '''
+        # u_ratings = self.comment_ratings
+        pass
+
+city = 'Seattle'
+seattle = CityValues(city)
+seattle.rate_user_comments()
 
 
 

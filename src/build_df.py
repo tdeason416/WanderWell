@@ -130,7 +130,7 @@ def create_reviews_df(df):
     review_df: pandas df - dataframe containing reviews
     '''
     reviews_1 = df['id']
-    keys = df['reviews'].values[0][0].keys()
+    # keys = df['reviews'].values[0][0].keys()
     review_rows = []
     df['reviews'].apply(_add_list_contents_to_df, appendee= review_rows)
     reviews = pd.DataFrame(review_rows)
@@ -141,6 +141,7 @@ def create_reviews_df(df):
     reviews_df = pd.concat(expanded_reviews, axis=1)
     reviews_df['rating-date'] = reviews_df['rating-date'].apply(pd.Timestamp)
     reviews_df['rating'] = reviews_df['rating'].apply(lambda x: float(x.split()[0]))
+    reviews_df['username'] = reviews_df['username'] + '_' + reviews_df['user_location']
     reviews_df.drop('user_location', axis=1, inplace=True)
     reviews_df['level_1'] = reviews_df['level_1'].apply(lambda x: int(x.split('-')[-1]))
     reviews_df.columns = ['bus_id', 'review_no', 'content', 'rating', 'date', 'user']
@@ -198,7 +199,6 @@ def _remove_outlier_zips(df, zip_col_key, min_poi_count):
     df_ = df.copy()
     zips = df[zip_col_key].value_counts() < min_poi_count
     zipdex = zips[zips].index
-    print zipdex
     for zipcode in zipdex:
         df_ = df_[df_[zip_col_key] != zipcode]
     return df_
@@ -372,8 +372,6 @@ def build_grid(city_df, point_spacing, max_distance):
     distances_min = np.apply_along_axis(np.mean, 1, gridex[:,:4]) 
     grid = grid[distances_min< max_distance]
     return grid
-
-
 
 def save_df_to_json(df, file_location):
     '''
