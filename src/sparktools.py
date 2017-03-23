@@ -246,7 +246,7 @@ class SparkNLPClassifier(object):
         acclist = []
         self.spark.udf.register('getsecond', lambda x: x[1])
         probs = self.predict(test)
-        tlat = '''SELECT getsecond(probability) as probs, label FROM probs WHERE {} {}'''
+        probs = self.spark.sql('''SELECT getsecond(probability) as probs, label FROM probs''')
         # print tlat.format('label', '> 0')
         c_true = probs.filter('label = 1')
         c_false = probs.filter('label = 1')
