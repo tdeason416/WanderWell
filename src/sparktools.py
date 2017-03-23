@@ -4,7 +4,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from src import build_df
+import build_df
 from pyspark.sql import functions as F
 from pyspark.sql.functions import rand
 from pyspark.ml.feature import HashingTF, IDF, Tokenizer, StopWordsRemover
