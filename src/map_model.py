@@ -14,27 +14,37 @@ class CityValues(object):
     '''
     def __init__(self, city, endtime=None, S3=False):
         '''
-        Generate city object
+        Generate city object.  Extracts data from data folder if exists
+        Otherwise information is extracted from s3.
         --------
         Parameters
         city: string - name of city
         endtime: str - time of data extraction
-        S3: bool - if True, data to be extracted from Wanderwell S3 bucket
+        S3: bool - if True, data to be extracted from Wanderwell-ready S3 bucket.
         --------
         Returns
         None
         '''
         if S3:
-            build_df.extract_from_s3('wanderwell-ready', 'data/', city.lower())
-        self.general = pd.read_json('data/{}-clean.json'.format(city.lower()))
-        self.bnb = pd.read_json('data/{}-bnb.json'.format(city.lower()))
-        self.grid = pd.read_json('data/{}-grid.json'.format(city.lower()))
-        self.comments = pd.read_json('data/{}-comments.json'.format(city.lower()))
+            build_df.extract_from_s3('wanderwell-ready', '../data/', city.lower())
+        self.general = pd.read_json('../data/{}-clean.json'.format(city.lower()))
+        self.bnb = pd.read_json('../data/{}-bnb.json'.format(city.lower()))
+        self.grid = pd.read_json('../data/{}-grid.json'.format(city.lower()))
+        self.comments = pd.read_json('../data/{}-comments.json'.format(city.lower()))
+        self.comments_nlp_ratings = pd.read_json('../data/{}-c_ratings.json'\
+                                                                .format(city.lower()))
         self.time_periods = [30, 90, 180, 360, 720]
+        self.user_comment_ratings = None
         if endtime is None:
             self.endtime = pd.Timestamp('2017, 3, 5')
         else:
             self.endtime = pd.Timestamp(endtime)
+
+    def _add_comments_ratings(self):
+        '''
+        Adds comment relevance ratings derived from SPARK nlp to self.comments
+        '''
+        self.comments['relevance'] = self.comments_nlp_ratings['relevance']
 
     def _apply_rating_frequency(self, df):
         '''
@@ -66,11 +76,12 @@ class CityValues(object):
         Assign rank to comments by user
         --------
         Parameters
-        none
+        None - defined through init
         --------
         Returns
-        none
+        None
         '''
+        self._add_comments_ratings()
         no_text = self.comments.drop('content', axis=1)
         no_text['date'] = (pd.Timestamp('2017, 2, 28') - no_text['date']).apply(lambda x: x.days)
         by_user = self._apply_rating_frequency(no_text)
@@ -92,6 +103,17 @@ class CityValues(object):
         for user_rating in by_user['weight'].value_counts().index:
             no_text['rating'] = user_rating * by_user['weight']
         self.user_comment_ratings = no_text
+
+    def Assign_poi_ratings(self):
+        '''
+        Assigns user reviews to buisness locations
+        --------
+        Parameters
+        
+        --------
+        Returns
+
+        '''
 
 
 

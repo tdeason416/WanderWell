@@ -33,7 +33,7 @@ class SparkNLPClassifier(object):
         s3_bucket:
         --------
         RETURNS
-        TODO
+        self.data: spark dataframe containing training set.
         '''
         self.spark = spark = ps.sql.SparkSession.builder \
             .appName("reviews_nlp") \
@@ -87,7 +87,16 @@ class SparkNLPClassifier(object):
 
     def vectorize_train(self, label, thres=1, n_features=20):
         '''
-        Applies vectorize to the training set
+        Applies generate_binary_labels, split labeled sets
+        and vectorize to the training set
+        --------
+        Parameters:
+        label: str - name of the label variable
+        thres: inclusive mininmum value for positive label
+        n_features: number of terms to be vectorized per set
+        --------
+        Returns
+        populates self.train
         '''
         self.train = self.generate_binary_labels(self.data, label, thres)
         self.train = self.split_labeled_sets(self.train, label)
@@ -102,7 +111,7 @@ class SparkNLPClassifier(object):
         n_features: int -  max number of words to be used as features
         --------
         Returns
-        None - this function augments original self.train df
+        None - Vectorized and rescaled data.
         '''
         self.spark.udf.register('listjoin', lambda x: ' '.join(x))
         remover = StopWordsRemover(inputCol="content", outputCol="filtered")
@@ -136,8 +145,6 @@ class SparkNLPClassifier(object):
         self.train = training_data
         return testing_data
 
-    def generate_param_map
-
 
     def cross_val_eval(self, df, model_classifier, paramgrid, number_of_folds=5):
         '''
@@ -146,10 +153,11 @@ class SparkNLPClassifier(object):
         Parameters
         df: spark.df - training df to cross_val
         model_classifier - spark ML classsifier
+        paramgrid - dict - terms to be optimized
         number_of_folds: int - number of cross val cells
         --------
         Returns
-        None - populates the self.Kfolds arguement
+        crossval.fit() - fitted cross validation function
         '''
         model = model_classifier(labelCol='label', featuresCol='features')
         evaluator = BinaryClassificationEvaluator()
@@ -162,7 +170,7 @@ class SparkNLPClassifier(object):
         return crossval.fit(df)
 
     def train_boosted_regression(self, depth=3, n_trees=100, 
-                    learning_rate= .01, max_cats= 6):
+                                 learning_rate= .01, max_cats= 6):
         '''
         train dataset on boosted decision trees
         --------
