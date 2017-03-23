@@ -63,8 +63,6 @@ class CityValues(object):
             df_['date{}'.format(num)] = df_['date'] <= num * df_['date']
             agg_dict['date{}'.format(num)] = 'sum'
         grouped = df_.groupby('user').agg(agg_dict)
-        print df['user'].value_counts().nlargest(20)
-        print grouped.index.shape[0]
         grouped.fillna(0, inplace=True)
         grouped.columns = ['_'.join(col).strip() for col in grouped.columns.values]
         grouped['date_range'] = grouped['date_max'] - grouped['date_min']
@@ -90,21 +88,25 @@ class CityValues(object):
         # by_bus = self._apply_rating_frequency(no_text)
         by_user = by_user[by_user['rating_std'] != 0]
         # by_bus = by_bus[by_bus['rating-std'] != 0]
-        fraud_user = by_user['date_range'] > 5
-        fraud_user = fraud_user + by_user['rating_count'] < 30
+        counts = by_user['rating_count'].describe().values
+        fraud_user = by_user['date_range'] < 30
+        # fraud_user = by_user['rating_count'] > 30 + fraud_user
         by_user = by_user[fraud_user]
         s_users = by_user['rating_count'] > 30
-        print by_user['rating_count'].nlargest(20)
-        pow_user = (by_user['rating_count'] > 30 + s_users)
+        twosig = counts[1] + 1.5 * counts[2]
+        pow_user = (by_user['rating_count'] > twosig + s_users)
         active_user = (by_user['rpd_30'] > .25 + s_users) * 1.5
         endurance_user = (by_user['rpd_720'] > .05 + s_users) * 2.0
         ###apply user rating weights
-        # print pow_user.sum()
-        # print active_user.sum()
-        # print endurance_user.sum()
-        by_user['weight'] = (pow_user*1.25 + active_user*1.5 + endurance_user*2.0) * fraud_user
+        # print by_user['rating_count'].describe()
+        # print by_user['date_range'].describe()
+        print by_user['rating_count'].nlargest(20)
+        print pow_user.sum()
+        print active_user.sum()
+        print endurance_user.sum()
+        by_user['weight'] = (pow_user*1.25 + active_user*1.5 + endurance_user*2.0)
         # by_user['weight'] = by_user['weight']*5 /by_user['weight'].sum() *100
-        print by_user.weight.value_counts()
+        # print by_user.weight.value_counts()
         #### this is bad, dont do this
         for user_rating in by_user['weight'].value_counts().index:
             no_text['weighted_rating'] = user_rating * no_text['rating']
