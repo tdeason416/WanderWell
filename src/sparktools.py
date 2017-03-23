@@ -246,11 +246,10 @@ class SparkNLPClassifier(object):
         acclist = []
         self.spark.udf.register('getsecond', lambda x: x[1])
         probs = self.predict(test)
-        probs.registerTempTable('probs')
         tlat = '''SELECT getsecond(probability) as probs, label FROM probs WHERE {} {}'''
         # print tlat.format('label', '> 0')
-        c_true = self.spark.sql(tlat.format('label', '> 0'))
-        c_false = self.spark.sql(tlat.format('label', '< 1'))
+        c_true = probs.filter('label = 1')
+        c_false = probs.filter('label = 1')
         for thres in np.linspace(.01, .99, number_of_iterations):
             cfdict = {'thres': thres}
             cfdict['tp'] = c_true.filter('probs > {}'.format(thres)).count()
