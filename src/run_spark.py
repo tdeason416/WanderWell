@@ -2,7 +2,6 @@ import re
 import os               # for environ variables in Part 3
 import numpy as np
 import pandas as pd
-from pyspark.sql.functions import rand
 from sparktools import SparkNLPClassifier
 import build_df
 
