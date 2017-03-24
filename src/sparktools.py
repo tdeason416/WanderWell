@@ -7,13 +7,13 @@ import pandas as pd
 import build_df
 from pyspark.sql.functions import rand
 from pyspark.ml.feature import HashingTF, IDF, Tokenizer, StopWordsRemover, StringIndexer, VectorIndexer
-from pyspark.ml.classification import 
 # from pyspark.ml.feature import NGram # maybe
 
 from pyspark.ml import Pipeline
 from pyspark.ml.classification import RandomForestClassifier, GBTClassifier, NaiveBayes
 from pyspark.ml.tuning import CrossValidator, ParamGridBuilder
-from pyspark.ml.evaluation import BinaryClassificationEvaluator, BinaryClassificationMetrics
+from pyspark.ml.evaluation import BinaryClassificationEvaluator
+from pyspark.mllib.evaluation import BinaryClassificationMetrics
 
 class SparkNLPClassifier(object):
     '''
@@ -258,28 +258,28 @@ class SparkNLPClassifier(object):
     #         acclist.append(cfdict)
     #     return acclist
 
-    def evaluate_model_simple(self, test, number_of_iterations):
-    '''
-    generate tpr, fpr, fnr, and tpr for each threshold
-    --------
-    Parameters:
-    test: spark.df post vectorization
-    number_of_iterations: number of threshold values between .001 and 1.00 utilized in roc curve
-    --------
-    Returns:
-    list-of-dict - containing rate of pthres, tp, fp, fn, tn
-    '''
-    score_model = {}
-    predictionAndLabels = test.map(lambda lp: (float(self.model.predict(lp.features)), lp.label))
-    # Instantiate metrics object
-    metrics = BinaryClassificationMetrics(predictionAndLabels)
-    # Area under precision-recall curve
-    score_model['precision_recall'] = metrics.areaUnderPR
-    # Area under ROC curve
-    score_model["ROC_area"] = metrics.areaUnderROC
-    score_model['tpr'] = metrics.truePositiveRate('label')
-    score_model['fpr'] = metrics.falsePositiveRate('label')
-    return score_model
+    def evaluate_model_simple(self, test):
+        '''
+        generate tpr, fpr, fnr, and tpr for each threshold
+        --------
+        Parameters:
+        test: spark.df post vectorization
+        number_of_iterations: number of threshold values between .001 and 1.00 utilized in roc curve
+        --------
+        Returns:
+        list-of-dict - containing rate of pthres, tp, fp, fn, tn
+        '''
+        score_model = {}
+        predictionAndLabels = test.map(lambda lp: (float(self.model.predict(lp.features)), lp.label))
+        # Instantiate metrics object
+        metrics = BinaryClassificationMetrics(predictionAndLabels)
+        # Area under precision-recall curve
+        score_model['precision_recall'] = metrics.areaUnderPR
+        # Area under ROC curve
+        score_model["ROC_area"] = metrics.areaUnderROC
+        score_model['tpr'] = metrics.truePositiveRate('label')
+        score_model['fpr'] = metrics.falsePositiveRate('label')
+        return score_model
 
     def _rem_non_letters(self, text):
         '''
