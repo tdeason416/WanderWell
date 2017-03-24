@@ -15,13 +15,13 @@ class CityValues(object):
     def __init__(self, city, endtime=None, S3=False):
         '''
         Generate city object.  Extracts data from data folder if exists
-        Otherwise information is extracted from s3.
+        Otherwise information is saved from s3 to the data folder.
         --------
         Parameters
         city: string - name of city
         endtime: str - time of data extraction
-        S3: bool - if True, data to be extracted from Wanderwell-ready S3 bucket.
-        --------
+        S3: bool - if True, data to be extracted from wanderwell-ready S3 bucket.
+        -------
         Returns
         None
         '''
@@ -31,8 +31,8 @@ class CityValues(object):
         self.bnb = pd.read_json('../data/{}-bnb.json'.format(city.lower()))
         self.grid = pd.read_json('../data/{}-grid.json'.format(city.lower()))
         self.comments = pd.read_json('../data/{}-comments.json'.format(city.lower()))
-        self.comments_nlp_ratings = pd.read_json('../data/{}-c_ratings.json'\
-                                                                .format(city.lower()))
+        self.nlp_ratings = pd.read_json('../data/{}-c_ratings.json'\
+                                                            .format(city.lower()))
         self.time_periods = [30, 90, 180, 360, 720]
         self.user_comment_ratings = None
         if endtime is None:
@@ -41,10 +41,11 @@ class CityValues(object):
             self.endtime = pd.Timestamp(endtime)
 
     def _add_comments_ratings(self):
-        '''
-        Adds comment relevance ratings derived from SPARK nlp to self.comments
-        '''
-        self.comments['relevance'] = self.comments_nlp_ratings['relevance']
+        pass
+        # '''
+        # Adds comment relevance ratings derived from SPARK nlp to self.comments
+        # '''
+        # self.comments['relevance'] = self.comments_nlp_ratings['relevance']
 
     def _apply_rating_frequency(self, df, group_col):
         '''
@@ -75,9 +76,16 @@ class CityValues(object):
     def _identify_fraud_users(self):
         by_date = self.comments.groupby(['user', 'date']).count()
         by_date_ = by_date.reset_index()
-        print by_date.head()
-        by_users = by_date.groupby('user').agg({'review_no : [mean, stdev, sum]'})
-        print by_users.head()
+        fraud_users = []
+        by_users = by_date_.groupby('user').agg({'content' : ['mean', 'std', 'max']}).fillna(10)
+        by_users.columns = [col.strip() for col in by_users.columns.values]
+        # print by_users.fillna(0).sort_values('content_max', ascending=False).head(25)[['content_mean',
+        #                                                                                 'content_std',
+        #                                                                                 'content_max']]
+        by_users['fraud'] = by_users['mean'] + 4*by_users['std'] - by_users['max']
+        by_users['fraud'] = by_users['fraud'].apply(lambda x: 1 if x < 0 else 0)
+        print by_users[by_users['fraud'] == 1]
+        
 
     def rate_user_comments(self):
         '''
@@ -133,10 +141,6 @@ class CityValues(object):
         '''
         # u_ratings = self.comment_ratings
         pass
-
-city = 'Seattle'
-seattle = CityValues(city)
-seattle.rate_user_comments()
 
 
 
