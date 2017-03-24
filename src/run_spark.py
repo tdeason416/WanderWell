@@ -46,8 +46,6 @@ path = '../data/model_performance'
 if not os.path.exists(path):
     os.mkdir(path)
 
-nb_rel = pd.Series({1:'a', 2:'b'})
-
 for n in range(1,26,5):
     model = SparkNLPClassifier()
     model.vectorize_train('useful + funny + cool', 6)
