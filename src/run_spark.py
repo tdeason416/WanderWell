@@ -52,7 +52,7 @@ for n in range(1,30,5):
 
     nb_rel = predictionnb.select('probability','label').toPandas()
 
-    nb_rel.to_json('../data/rf_model_performance/nb_relevant.json')
+    nb_rel.to_json('../data/rf_model_performance/nb_{}_upvotes.json'.format(n))
 
     build_df.save_file_to_s3('../data/rf_model_performance/nb_{}_upvotes.json'.format(n), 'wanderwell-ready')
 
