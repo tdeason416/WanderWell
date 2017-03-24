@@ -270,7 +270,7 @@ class SparkNLPClassifier(object):
         list-of-dict - containing rate of pthres, tp, fp, fn, tn
         '''
         score_model = {}
-        predictionAndLabels = test.map(lambda lp: (float(self.model.predict(lp.features)), lp.label))
+        predictionAndLabels = test.rdd.map(lambda lp: (float(self.model.predict(lp.features)), lp.label))
         # Instantiate metrics object
         metrics = BinaryClassificationMetrics(predictionAndLabels)
         metrics2 = MulticlassMetrics(predictionAndLabels)
