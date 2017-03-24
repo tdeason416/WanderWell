@@ -13,7 +13,7 @@ from pyspark.ml import Pipeline
 from pyspark.ml.classification import RandomForestClassifier, GBTClassifier, NaiveBayes
 from pyspark.ml.tuning import CrossValidator, ParamGridBuilder
 from pyspark.ml.evaluation import BinaryClassificationEvaluator
-from pyspark.mllib.evaluation import BinaryClassificationMetrics
+from pyspark.mllib.evaluation import BinaryClassificationMetrics, MulticlassMetrics
 
 class SparkNLPClassifier(object):
     '''
@@ -273,12 +273,13 @@ class SparkNLPClassifier(object):
         predictionAndLabels = test.map(lambda lp: (float(self.model.predict(lp.features)), lp.label))
         # Instantiate metrics object
         metrics = BinaryClassificationMetrics(predictionAndLabels)
+        metrics2 = MulticlassMetrics(predictionAndLabels)
         # Area under precision-recall curve
         score_model['precision_recall'] = metrics.areaUnderPR
         # Area under ROC curve
         score_model["ROC_area"] = metrics.areaUnderROC
-        score_model['tpr'] = metrics.truePositiveRate('label')
-        score_model['fpr'] = metrics.falsePositiveRate('label')
+        score_model['tpr'] = metrics2.truePositiveRate('label')
+        score_model['fpr'] = metrics2.falsePositiveRate('label')
         return score_model
 
     def _rem_non_letters(self, text):
