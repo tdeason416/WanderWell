@@ -5,19 +5,15 @@ import numpy as np
 import pandas as pd
 
 import build_df
-from pyspark.sql import functions as F
 from pyspark.sql.functions import rand
-from pyspark.ml.feature import HashingTF, IDF, Tokenizer, StopWordsRemover
-from pyspark.ml.classification import NaiveBayes
+from pyspark.ml.feature import HashingTF, IDF, Tokenizer, StopWordsRemover, StringIndexer, VectorIndexer
+from pyspark.ml.classification import 
 # from pyspark.ml.feature import NGram # maybe
 
 from pyspark.ml import Pipeline
-from pyspark.ml.classification import RandomForestClassifier
+from pyspark.ml.classification import RandomForestClassifier, GBTClassifier, NaiveBayes
 from pyspark.ml.tuning import CrossValidator, ParamGridBuilder
-from pyspark.ml.evaluation import BinaryClassificationEvaluator
-
-from pyspark.ml.classification import GBTClassifier
-from pyspark.ml.feature import StringIndexer, VectorIndexer
+from pyspark.ml.evaluation import BinaryClassificationEvaluator, BinaryClassificationMetrics
 
 class SparkNLPClassifier(object):
     '''
@@ -232,35 +228,58 @@ class SparkNLPClassifier(object):
         probability = self.model.transform(test)
         return probability
 
-    def evaluate_model(self, test, number_of_iterations):
-        '''
-        generate tpr, fpr, fnr, and tpr for each threshold
-        --------
-        Parameters:
-        test: spark.df post vectorization
-        number_of_iterations: number of threshold values between .001 and 1.00 utilized in roc curve
-        --------
-        Returns:
-        list-of-dict - containing rate of pthres, tp, fp, fn, tn
-        '''
-        acclist = []
-        self.spark.udf.register('getsecond', lambda x: x[1])
-        probs = self.predict(test)
-        probs = self.spark.sql('''SELECT getsecond(probability) as probs, label FROM probs''')
-        # print tlat.format('label', '> 0')
-        c_true = probs.filter('label = 1')
-        c_false = probs.filter('label = 1')
-        for thres in np.linspace(.01, .99, number_of_iterations):
-            cfdict = {'thres': thres}
-            cfdict['tp'] = c_true.filter('probs > {}'.format(thres)).count()
-            cfdict['fn'] = c_true.filter('probs < {}'.format(thres)).count()
-            cfdict['fp'] = c_false.filter('probs > {}'.format(thres)).count()
-            cfdict['fn'] = c_false.filter('probs < {}'.format(thres)).count()
-            cfdict['tpr'] = cfdict['tp']/(cfdict['tp'] + cfdict['fn'])
-            cfdict['fpr'] = cfdict['fp']/(cfdict['fp'] + cfdict['tn'])
-            print 'tp= {}, fn= {}, fp= {}'.format(cfdict['tp'], cfdict['fn'], cfdict['fp'])
-            acclist.append(cfdict)
-        return acclist
+    # def evaluate_model(self, test, number_of_iterations):
+    #     '''
+    #     generate tpr, fpr, fnr, and tpr for each threshold
+    #     --------
+    #     Parameters:
+    #     test: spark.df post vectorization
+    #     number_of_iterations: number of threshold values between .001 and 1.00 utilized in roc curve
+    #     --------
+    #     Returns:
+    #     list-of-dict - containing rate of pthres, tp, fp, fn, tn
+    #     '''
+    #     acclist = []
+    #     self.spark.udf.register('getsecond', lambda x: x[1])
+    #     probs = self.predict(test)
+    #     probs = self.spark.sql('''SELECT getsecond(probability) as probs, label FROM probs''')
+    #     # print tlat.format('label', '> 0')
+    #     c_true = probs.filter('label = 1')
+    #     c_false = probs.filter('label = 1')
+    #     for thres in np.linspace(.01, .99, number_of_iterations):
+    #         cfdict = {'thres': thres}
+    #         cfdict['tp'] = c_true.filter('probs > {}'.format(thres)).count()
+    #         cfdict['fn'] = c_true.filter('probs < {}'.format(thres)).count()
+    #         cfdict['fp'] = c_false.filter('probs > {}'.format(thres)).count()
+    #         cfdict['fn'] = c_false.filter('probs < {}'.format(thres)).count()
+    #         cfdict['tpr'] = cfdict['tp']/(cfdict['tp'] + cfdict['fn'])
+    #         cfdict['fpr'] = cfdict['fp']/(cfdict['fp'] + cfdict['tn'])
+    #         print 'tp= {}, fn= {}, fp= {}'.format(cfdict['tp'], cfdict['fn'], cfdict['fp'])
+    #         acclist.append(cfdict)
+    #     return acclist
+
+    def evaluate_model_simple(self, test, number_of_iterations):
+    '''
+    generate tpr, fpr, fnr, and tpr for each threshold
+    --------
+    Parameters:
+    test: spark.df post vectorization
+    number_of_iterations: number of threshold values between .001 and 1.00 utilized in roc curve
+    --------
+    Returns:
+    list-of-dict - containing rate of pthres, tp, fp, fn, tn
+    '''
+    score_model = {}
+    predictionAndLabels = test.map(lambda lp: (float(self.model.predict(lp.features)), lp.label))
+    # Instantiate metrics object
+    metrics = BinaryClassificationMetrics(predictionAndLabels)
+    # Area under precision-recall curve
+    score_model['precision_recall'] = metrics.areaUnderPR
+    # Area under ROC curve
+    score_model["ROC_area"] = metrics.areaUnderROC
+    score_model['tpr'] = metrics.truePositiveRate('label')
+    score_model['fpr'] = metrics.falsePositiveRate('label')
+    return score_model
 
     def _rem_non_letters(self, text):
         '''
