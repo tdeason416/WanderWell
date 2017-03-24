@@ -46,23 +46,23 @@ class CityValues(object):
         '''
         self.comments['relevance'] = self.comments_nlp_ratings['relevance']
 
-    def _apply_rating_frequency(self, df):
+    def _apply_rating_frequency(self, df, group_col):
         '''
         function to convert datetime to days since a given endtime
         --------
         Parameters
-        time : pd.Series - data which time delta applies to
-        endtime: datetime object - date of relative measurement
+        df: pd.Dataframe -  dataframe which contains items to be grouped
+        group_col: string - column name of groupby col
         --------
         Returns
-        days: Pd.Series - integer timedelta in days to the endtime
+        grouped: Pd.Series - integer timedelta in days to the endtime
         '''
         df_ = df.copy()
         agg_dict = {'rating': ['count', 'median', 'std'], 'date': ['min', 'max']}
         for num in self.time_periods:
             df_['date{}'.format(num)] = df_['date'] <= num * df_['date']
             agg_dict['date{}'.format(num)] = 'sum'
-        grouped = df_.groupby('user').agg(agg_dict)
+        grouped = df_.groupby(group_col).agg(agg_dict)
         grouped.fillna(0, inplace=True)
         grouped.columns = ['_'.join(col).strip() for col in grouped.columns.values]
         grouped['date_range'] = grouped['date_max'] - grouped['date_min']
@@ -70,6 +70,14 @@ class CityValues(object):
             grouped['rpd_{}'.format(num)] = grouped['date{}_sum'.format(num)]/num
             grouped.drop('date{}_sum'.format(num), axis=1, inplace=True)
         return grouped
+
+
+    def _identify_fraud_users(self):
+        by_date = self.comments.groupby(['user', 'date']).count()
+        by_date_ = by_date.reset_index()
+        print by_date.head()
+        by_users = by_date.groupby('user').agg({'review_no : [mean, stdev, sum]'})
+        print by_users.head()
 
     def rate_user_comments(self):
         '''
@@ -84,14 +92,15 @@ class CityValues(object):
         self._add_comments_ratings()
         no_text = self.comments.drop('content', axis=1)
         no_text['date'] = (pd.Timestamp('2017, 2, 28') - no_text['date']).apply(lambda x: x.days)
-        by_user = self._apply_rating_frequency(no_text)
+        by_user = self._apply_rating_frequency(no_text, 'user')
         # by_bus = self._apply_rating_frequency(no_text)
         by_user = by_user[by_user['rating_std'] != 0]
         # by_bus = by_bus[by_bus['rating-std'] != 0]
         counts = by_user['rating_count'].describe().values
-        fraud_user = by_user['date_range'] < 30
-        # fraud_user = by_user['rating_count'] > 30 + fraud_user
-        by_user = by_user[fraud_user]
+        poo = self._identify_fraud_users()
+        # fraud_user = by_user['date_range'] < 30
+        # # fraud_user = by_user['rating_count'] > 30 + fraud_user
+        # by_user = by_user[fraud_user]
         s_users = by_user['rating_count'] > 30
         twosig = counts[1] + 1.5 * counts[2]
         pow_user = (by_user['rating_count'] > twosig + s_users)

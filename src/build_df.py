@@ -411,7 +411,7 @@ def save_file_to_s3(file_location, bucket_name):
     RETURNS
     None
     '''
-    bucket_key = file_location.split('-')[-1]
+    bucket_key = file_location.split('/')[-1]
     aws = boto3.resource('s3')
     ww_all = aws.Bucket(bucket_name)
     ww_all.upload_file(file_location, bucket_key)
