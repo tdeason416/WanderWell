@@ -41,22 +41,15 @@ import build_df
 # build_df.save_file_to_s3('../data/rf_model_performance/rf_relevant.json', 'wanderwell-ready')
 
 ### TRAIN NAIVE BAYES ON relevance
-for n in range(1,30,5):
+for n in range(1,26,5):
     model = SparkNLPClassifier()
-
-    model.vectorize_train('useful + funny + cool', n)
+    model.vectorize_train('useful + funny + cool', 6)
     testrf = model.train_test_split()
-
-    model.train_naive_bayes()
+    model.train_naive_bayes(smoothing= .5)
     predictionnb = model.predict(testrf)
-
     nb_rel = predictionnb.select('probability','label').toPandas()
-
     nb_rel.to_json('../data/rf_model_performance/nb_{}_upvotes.json'.format(n))
-
     build_df.save_file_to_s3('../data/rf_model_performance/nb_{}_upvotes.json'.format(n), 'wanderwell-ready')
-
-
 
 
 # ### TRAIN NAIVE BAYES ON Prefered
