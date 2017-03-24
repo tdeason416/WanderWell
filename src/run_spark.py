@@ -7,65 +7,69 @@ import build_df
 
 
 
-# TESTING
+# # TESTING
 
-### TRAINING RANDOM FOREST on Prefered
-model = SparkNLPClassifier()
+# ### TRAINING RANDOM FOREST on Prefered
+# model = SparkNLPClassifier()
 
-model.vectorize_train('stars', 4)
-testrf = model.train_test_split()
+# model.vectorize_train('stars', 4)
+# testrf = model.train_test_split()
 
-model.train_random_forest()
-predictionrf = model.predict(testrf)
+# model.train_random_forest()
+# predictionrf = model.predict(testrf)
 
-rf_pop = predictionrf.select('probability','label').toPandas()
+# rf_pop = predictionrf.select('probability','label').toPandas()
 
 
-rf_pop.to_json('../data/rf_model_performance/rf_popular.json')
+# rf_pop.to_json('../data/rf_model_performance/rf_popular.json')
 
-build_df.save_file_to_s3('../data/rf_model_performance/rf_popular.json', 'wanderwell-ready')
+# build_df.save_file_to_s3('../data/rf_model_performance/rf_popular.json', 'wanderwell-ready')
 
-### TRAINING RANDOM FOREST on Relevant
-model = SparkNLPClassifier()
+# ### TRAINING RANDOM FOREST on Relevant
+# model = SparkNLPClassifier()
 
-model.vectorize_train('useful + funny + cool', 3)
-testrf = model.train_test_split()
+# model.vectorize_train('useful + funny + cool', 3)
+# testrf = model.train_test_split()
 
-model.train_random_forest()
-predictionrf = model.predict(testrf)
+# model.train_random_forest()
+# predictionrf = model.predict(testrf)
 
-rf_rel = predictionrf.select('probability','label').toPandas()
+# rf_rel = predictionrf.select('probability','label').toPandas()
 
-rf_rel.to_json('../data/rf_model_performance/rf_relevant.json')
+# rf_rel.to_json('../data/rf_model_performance/rf_relevant.json')
 
-build_df.save_file_to_s3('../data/rf_model_performance/rf_relevant.json', 'wanderwell-ready')
+# build_df.save_file_to_s3('../data/rf_model_performance/rf_relevant.json', 'wanderwell-ready')
 
 ### TRAIN NAIVE BAYES ON relevance
-model = SparkNLPClassifier()
+for n in range(1,30,5):
+    model = SparkNLPClassifier()
 
-model.vectorize_train('useful + funny + cool', 3)
-testrf = model.train_test_split()
+    model.vectorize_train('useful + funny + cool', n)
+    testrf = model.train_test_split()
 
-model.train_naive_bayes()
-predictionnb = model.predict(testrf)
+    model.train_naive_bayes()
+    predictionnb = model.predict(testrf)
 
-nb_rel = predictionnb.select('probability','label').toPandas()
+    nb_rel = predictionnb.select('probability','label').toPandas()
 
-nb_rel.to_json('../data/rf_model_performance/nb_relevant.json')
+    nb_rel.to_json('../data/rf_model_performance/nb_relevant.json')
 
-build_df.save_file_to_s3('../data/rf_model_performance/nb_relevant.json', 'wanderwell-ready')
+    build_df.save_file_to_s3('../data/rf_model_performance/nb_{}_upvotes.json'.format(n), 'wanderwell-ready')
 
-### TRAIN NAIVE BAYES ON Prefered
-model = SparkNLPClassifier()
 
-model.vectorize_train('stars', 4)
-testrf = model.train_test_split()
 
-model.train_naive_bayes()
-predictionnb = model.predict(testrf)
 
-nb_pop = predictionnb.select('probability','label').toPandas()
+# ### TRAIN NAIVE BAYES ON Prefered
+# model = SparkNLPClassifier()
 
-nb_pop.to_json('../data/rf_model_performance/nb_popular.json')
+# model.vectorize_train('stars', 4)
+# testrf = model.train_test_split()
 
-build_df.save_file_to_s3('../data/rf_model_performance/nb_popular.json', 'wanderwell-ready')
+# model.train_naive_bayes()
+# predictionnb = model.predict(testrf)
+
+# nb_pop = predictionnb.select('probability','label').toPandas()
+
+# nb_pop.to_json('../data/rf_model_performance/nb_popular.json')
+
+# build_df.save_file_to_s3('../data/rf_model_performance/nb_popular.json', 'wanderwell-ready')

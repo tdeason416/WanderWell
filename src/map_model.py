@@ -129,6 +129,7 @@ class CityValues(object):
         Returns
         biz_ratings: pd.DataFrame - ratings of buisneses
         '''
+        print self.weighed_ratings.columns
         bus_ratings = self._apply_rating_frequency(self.weighed_ratings, 'bus_id')
         print bus_ratings.head()
 

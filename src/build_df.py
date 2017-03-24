@@ -306,12 +306,13 @@ def create_general_df(df):
     pandas df - dataframe containing reviews
     '''
     keep_cols = ['name', 'category-0', 'coordinates.latitude', 'coordinates.longitude',
-                'is_claimed', 'location.zip_code', 'price', 'review_count']
+                'is_claimed', 'location.zip_code', 'price', 'review_count', 'food', 
+                'coffee', 'nightlife']
     hours_cols = [col for col in df.columns if col.startswith('hours')]
     keep_cols += hours_cols
     df_ = df[keep_cols]
     df_.columns = ['id', 'category', 'lat', 'long', 'claimed', 'zip', 
-                   'price', 'review_count'] + hours_cols
+                   'price', 'review_count', 'food', 'coffee', 'nightlife'] + hours_cols
     df_['price'].fillna('0', inplace=True)
     df_['price'] = df_['price'].apply(lambda x: len(x) if x is not '0' else 0)
     df_['price'].fillna(False, inplace=True)
