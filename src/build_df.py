@@ -145,7 +145,8 @@ def create_reviews_df(df):
     reviews_df.drop('user_location', axis=1, inplace=True)
     reviews_df['level_1'] = reviews_df['level_1'].apply(lambda x: int(x.split('-')[-1]))
     reviews_df.columns = ['bus_id', 'review_no', 'content', 'rating', 'date', 'user']
-    return reviews_df.set_index('review_no')
+    reviews_df.index = np.arange(reviews_df.shape[0])
+    return reviews_df
 
 def _filter_items(filt_list, cats_df):
     '''
@@ -316,6 +317,7 @@ def create_general_df(df):
     df_['price'].fillna(False, inplace=True)
     df_['lat'] = df_['lat'].astype(float)
     df_['long'] = df_['long'].astype(float)
+    df_.index = np.arange(df_.shape[0])
     return df_
 
 def _find_min_distance(df1, df2):
