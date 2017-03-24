@@ -33,19 +33,18 @@ class CityValues(object):
         self.comments = pd.read_json('../data/{}-comments.json'.format(city.lower()))
         self.nlp_ratings = pd.read_json('../data/{}-c_ratings.json'\
                                                             .format(city.lower()))
+        self.weighted_ratings = None
         self.time_periods = [30, 90, 180, 360, 720]
-        self.user_comment_ratings = None
         if endtime is None:
             self.endtime = pd.Timestamp('2017, 3, 5')
         else:
             self.endtime = pd.Timestamp(endtime)
 
     def _add_comments_ratings(self):
-        pass
-        # '''
-        # Adds comment relevance ratings derived from SPARK nlp to self.comments
-        # '''
-        # self.comments['relevance'] = self.comments_nlp_ratings['relevance']
+        '''
+        Adds comment relevance ratings derived from SPARK nlp to self.comments
+        '''
+        self.comments['relevance'] = self.nlp_ratings.values
 
     def _apply_rating_frequency(self, df, group_col):
         '''
@@ -74,18 +73,15 @@ class CityValues(object):
 
 
     def _identify_fraud_users(self):
+        '''
+        Identifys fradulant users in the self.comments df
+        '''
         by_date = self.comments.groupby(['user', 'date']).count()
         by_date_ = by_date.reset_index()
-        fraud_users = []
-        by_users = by_date_.groupby('user').agg({'content' : ['mean', 'std', 'max']}).fillna(10)
-        by_users.columns = [col.strip() for col in by_users.columns.values]
-        # print by_users.fillna(0).sort_values('content_max', ascending=False).head(25)[['content_mean',
-        #                                                                                 'content_std',
-        #                                                                                 'content_max']]
-        by_users['fraud'] = by_users['mean'] + 4*by_users['std'] - by_users['max']
-        by_users['fraud'] = by_users['fraud'].apply(lambda x: 1 if x < 0 else 0)
-        print by_users[by_users['fraud'] == 1]
-        
+        by_users = by_date_.groupby('user').agg({'content' : ['median', 'std', 'max']}).fillna(10)
+        by_users.columns = [col[1].strip() for col in by_users.columns.values]
+        fraud = by_users[(by_users['median'] <= 1) & (by_users['max'] > 15) & (by_users['std'] < 5)]
+        return fraud.index
 
     def rate_user_comments(self):
         '''
@@ -95,41 +91,35 @@ class CityValues(object):
         None - defined through init
         --------
         Returns
-        None
+        pd.Dataframe - Creates self.weighted_ratings dataframe
         '''
         self._add_comments_ratings()
         no_text = self.comments.drop('content', axis=1)
         no_text['date'] = (pd.Timestamp('2017, 2, 28') - no_text['date']).apply(lambda x: x.days)
+        no_text['positive'] = no_text['rating'].apply(lambda x: True if x > 4 else False)
         by_user = self._apply_rating_frequency(no_text, 'user')
-        # by_bus = self._apply_rating_frequency(no_text)
         by_user = by_user[by_user['rating_std'] != 0]
-        # by_bus = by_bus[by_bus['rating-std'] != 0]
         counts = by_user['rating_count'].describe().values
-        poo = self._identify_fraud_users()
-        # fraud_user = by_user['date_range'] < 30
-        # # fraud_user = by_user['rating_count'] > 30 + fraud_user
-        # by_user = by_user[fraud_user]
+        fraudsters = self._identify_fraud_users()
+        by_user.drop(fraudsters, inplace=True)
         s_users = by_user['rating_count'] > 30
         twosig = counts[1] + 1.5 * counts[2]
         pow_user = (by_user['rating_count'] > twosig + s_users)
         active_user = (by_user['rpd_30'] > .25 + s_users) * 1.5
-        endurance_user = (by_user['rpd_720'] > .05 + s_users) * 2.0
-        ###apply user rating weights
-        # print by_user['rating_count'].describe()
-        # print by_user['date_range'].describe()
-        print by_user['rating_count'].nlargest(20)
-        print pow_user.sum()
-        print active_user.sum()
-        print endurance_user.sum()
-        by_user['weight'] = (pow_user*1.25 + active_user*1.5 + endurance_user*2.0)
-        # by_user['weight'] = by_user['weight']*5 /by_user['weight'].sum() *100
-        # print by_user.weight.value_counts()
-        #### this is bad, dont do this
+        endurance_user = (by_user['rpd_720'] > .05) * 2.0
+        by_user['weight'] = (pow_user*1.5 + active_user*1.25 + endurance_user*2.0)
+        no_text_neg = no_text[no_text['positive'] == False]
+        no_text_neg['rating'].apply(lambda x: 4 - x)
+        no_text_pos = no_text[no_text['positive']]
+        no_text_pos['rating'] = no_text_pos['rating'].apply(lambda x: x - 3)
         for user_rating in by_user['weight'].value_counts().index:
-            no_text['weighted_rating'] = user_rating * no_text['rating']
-        self.user_comment_ratings = no_text
+            no_text_neg['weighted_rating'] = -(user_rating * no_text_neg['rating'])
+            no_text_pos['weighted_rating'] = user_rating * no_text_pos['rating']
+        rating_sum = pd.concat([no_text_neg, no_text_pos])
+        rating_sum['rating'] = rating_sum['weighted_rating'] * rating_sum['relevance']
+        self.weighed_ratings = rating_sum.drop('weighted_rating', axis=1)
 
-    def Assign_poi_ratings(self, trending_boost):
+    def assign_poi_ratings(self):
         '''
         Assigns user reviews to buisness locations
         --------
@@ -139,8 +129,9 @@ class CityValues(object):
         Returns
         biz_ratings: pd.DataFrame - ratings of buisneses
         '''
-        # u_ratings = self.comment_ratings
-        pass
+        bus_ratings = self._apply_rating_frequency(self.weighed_ratings, 'bus_id')
+        print bus_ratings.head()
+
 
 
 
