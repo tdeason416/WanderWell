@@ -54,7 +54,16 @@ for n in np.logsapce(10,1001,3):
     model.train_random_forest(depth=3, n_trees=n)
     predictionnb = model.predict(testrf)
     nb_rel = predictionnb.select('probability','label').toPandas()
-    nb_rel.to_json('{}{}_trees_performance.json'.format(path,n))
+    nb_rel.to_json('{}{}_rf_trees_performance.json'.format(path,n))
+
+for n in np.logsapce(10,1001,3):
+    model = SparkNLPClassifier()
+    model.vectorize_train('useful + funny + cool', 11)
+    testrf = model.train_test_split()
+    model.train_boosted_regression(depth=3, n_trees=n)
+    predictionnb = model.predict(testrf)
+    nb_rel = predictionnb.select('probability','label').toPandas()
+    nb_rel.to_json('{}{}_gbt_trees_performance.json'.format(path,n))
     # build_df.save_file_to_s3('{}{}_trees.json'.format(n), 'wanderwell-ready')
 
 
