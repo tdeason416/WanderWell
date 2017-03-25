@@ -36,7 +36,7 @@ class SparkNLPClassifier(object):
             .appName("reviews_nlp") \
             .getOrCreate() 
         if not local_file:
-            train_url = 's3n://wanderwell-ready/yelp_academic_dataset_review.json'
+  	    train_url = 's3n://AKIAJJYBGURBMDNHJCUA:qc3PodlGJ5wYRG9IRoEsGtjvk7gNowkS3F6EdTdY@wanderwell-ready/yelp_academic_dataset_review.json'
             self.data = self.spark.read.json(train_url)
         else:
             self.data = self.spark.read.json(local_file)

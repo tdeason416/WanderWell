@@ -3,7 +3,7 @@ import os               # for environ variables in Part 3
 import numpy as np
 import pandas as pd
 from sparktools import SparkNLPClassifier
-import build_df
+#import build_df
 
 
 
@@ -42,23 +42,24 @@ import build_df
 
 ### TRAIN NAIVE BAYES ON relevance
 
+file_id = 's3n://AKIAJJYBGURBMDNHJCUA:qc3PodlGJ5wYRG9IRoEsGtjvk7gNowkS3F6EdTdY@wanderwell-ready/yelp_academic_dataset_review.json'
 path = '../data/model_performance' 
 if not os.path.exists(path):
     os.mkdir(path)
 if path[-1] != '/':
     path += '/'
-for n in np.logsapce(10,1001,3):
-    model = SparkNLPClassifier()
-    model.vectorize_train('useful + funny + cool', 11)
+for n in np.linspace(10,252,50):
+    model = SparkNLPClassifier(file_id)
+    model.vectorize_train('useful + funny + cool', 3)
     testrf = model.train_test_split()
     model.train_random_forest(depth=3, n_trees=n)
     predictionnb = model.predict(testrf)
     nb_rel = predictionnb.select('probability','label').toPandas()
     nb_rel.to_json('{}{}_rf_trees_performance.json'.format(path,n))
 
-for n in np.logsapce(10,1001,3):
-    model = SparkNLPClassifier()
-    model.vectorize_train('useful + funny + cool', 11)
+for n in np.linspace(10,252,3):
+    model = SparkNLPClassifier(file_id)
+    model.vectorize_train('useful + funny + cool', 3)
     testrf = model.train_test_split()
     model.train_boosted_regression(depth=3, n_trees=n)
     predictionnb = model.predict(testrf)
