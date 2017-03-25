@@ -51,7 +51,7 @@ for n in np.logsapce(10,1001,3):
     model = SparkNLPClassifier()
     model.vectorize_train('useful + funny + cool', 11)
     testrf = model.train_test_split()
-    model.train_random_forest(number_pf)
+    model.train_random_forest(depth=3, n_trees=n)
     predictionnb = model.predict(testrf)
     nb_rel = predictionnb.select('probability','label').toPandas()
     nb_rel.to_json('{}{}_trees_performance.json'.format(path,n))
