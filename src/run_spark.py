@@ -45,16 +45,17 @@ import build_df
 path = '../data/model_performance' 
 if not os.path.exists(path):
     os.mkdir(path)
-
-for n in range(1,26,5):
+if path[-1] != '/':
+    path += '/'
+for n in np.logsapce(10,1001,3):
     model = SparkNLPClassifier()
-    model.vectorize_train('useful + funny + cool', 6)
+    model.vectorize_train('useful + funny + cool', 11)
     testrf = model.train_test_split()
-    model.train_naive_bayes(smoothing= .5)
+    model.train_random_forest(number_pf)
     predictionnb = model.predict(testrf)
     nb_rel = predictionnb.select('probability','label').toPandas()
-    nb_rel.to_json('{}/{}_upvotes_nb_performance.json'.format(path,1))
-    build_df.save_file_to_s3('../data/rf_model_performance/nb_{}_upvotes.json'.format(n), 'wanderwell-ready')
+    nb_rel.to_json('{}{}_trees_performance.json'.format(path,n))
+    # build_df.save_file_to_s3('{}{}_trees.json'.format(n), 'wanderwell-ready')
 
 
 # ### TRAIN NAIVE BAYES ON Prefered
