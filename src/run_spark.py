@@ -3,82 +3,129 @@ import os               # for environ variables in Part 3
 import numpy as np
 import pandas as pd
 from sparktools import SparkNLPClassifier
-#import build_df
+import build_df
 
-
-
-# # TESTING
-
-# ### TRAINING RANDOM FOREST on Prefered
-# model = SparkNLPClassifier()
-
-# model.vectorize_train('stars', 4)
-# testrf = model.train_test_split()
-
-# model.train_random_forest()
-# predictionrf = model.predict(testrf)
-
-# rf_pop = predictionrf.select('probability','label').toPandas()
-
-
-# rf_pop.to_json('../data/rf_model_performance/rf_popular.json')
-
-# build_df.save_file_to_s3('../data/rf_model_performance/rf_popular.json', 'wanderwell-ready')
-
-# ### TRAINING RANDOM FOREST on Relevant
-# model = SparkNLPClassifier()
-
-# model.vectorize_train('useful + funny + cool', 3)
-# testrf = model.train_test_split()
-
-# model.train_random_forest()
-# predictionrf = model.predict(testrf)
-
-# rf_rel = predictionrf.select('probability','label').toPandas()
-
-# rf_rel.to_json('../data/rf_model_performance/rf_relevant.json')
-
-# build_df.save_file_to_s3('../data/rf_model_performance/rf_relevant.json', 'wanderwell-ready')
-
-### TRAIN NAIVE BAYES ON relevance
-
-file_id = 's3n://AKIAJJYBGURBMDNHJCUA:qc3PodlGJ5wYRG9IRoEsGtjvk7gNowkS3F6EdTdY@wanderwell-ready/yelp_academic_dataset_review.json'
 path = '../data/model_performance' 
+
 if not os.path.exists(path):
     os.mkdir(path)
 if path[-1] != '/':
     path += '/'
-for n in np.linspace(10,252,50):
-    model = SparkNLPClassifier(file_id)
-    model.vectorize_train('useful + funny + cool', 3)
+
+
+### train max number of trees for RF
+for n in np.arange(10,352,50):
+    model = SparkNLPClassifier()
+    model.vectorize_train( 'useful + funny + cool', thres=3, n_features=8)
+    test = model.train_test_split()
+    model.train_random_forest(depth=15, n_trees=n)
+    predictionnb = model.predict(test)
+    floc = '{}{}_trees_rf_3upvotes_1learn_2depth_.json'.format(path,n)
+    nb_rel = predictionnb.select('probability', 'label').toPandas()
+    nb_rel.to_json(floc.format(path,n))
+    build_df.save_file_to_s3(floc, 'wanderwell-ready')
+
+    model = SparkNLPClassifier()
+    model.vectorize_train( 'useful + funny + cool', thres=3, n_features=8)
     testrf = model.train_test_split()
-    model.train_random_forest(depth=3, n_trees=n)
+    model.train_boosted_regression(depth=2, n_trees=n)
+    predictionnb = model.predict(testrf)
+    floc = '{}{}_trees_gbr_3upvotes_1learn_2depth_.json'.format(path,n)
+    nb_rel = predictionnb.select('probability', 'label').toPandas()
+    nb_rel.to_json(floc)
+    build_df.save_file_to_s3(floc, 'wanderwell-ready')
+
+for n in np.linspace(1,12,3):
+    model = SparkNLPClassifier()
+    model.vectorize_train('useful + funny + cool', thres=3, n_features=8)
+    test = model.train_test_split()
+    model.train_random_forest(depth=15, n_trees=50, max_cats=n)
+    predictionnb = model.predict(test)
+    floc = '{}max_cats_50_trees_rf_3upvotes_1learn_15depth_.json'.format(path,n)
+    nb_rel = predictionnb.select('probability', 'label').toPandas()
+    nb_rel.to_json(floc.format(path,n))
+    build_df.save_file_to_s3(floc, 'wanderwell-ready')
+
+    model = SparkNLPClassifier()
+    model.vectorize_train( 'useful + funny + cool', thres=3, n_features=8)
+    testrf = model.train_test_split()
+    model.train_boosted_regression(depth=2, n_trees=50, max_cats=n)
     predictionnb = model.predict(testrf)
     nb_rel = predictionnb.select('probability','label').toPandas()
-    nb_rel.to_json('{}{}_rf_trees_performance.json'.format(path,n))
+    floc = '{}{}max_cats_50trees_gbr_3upvotes_1learn_2depth_.json'.format(path,n)
+    nb_rel.to_json(floc)
+    build_df.save_file_to_s3(floc, 'wanderwell-ready')
 
-for n in np.linspace(10,252,3):
-    model = SparkNLPClassifier(file_id)
-    model.vectorize_train('useful + funny + cool', 3)
+for n in np.arange(1,19,3):
+    model = SparkNLPClassifier()
+    model.vectorize_train( 'useful + funny + cool', thres=3, n_features=8)
+    test = model.train_test_split()
+    model.train_random_forest(depth=15, n_trees=50, max_cats=6)
+    predictionnb = model.predict(test)
+    floc = '{}{}maxcats_50trees_rf_3upvotes_1learn_15depth_.json'.format(path,n)
+    nb_rel = predictionnb.select('probability', 'label').toPandas()
+    nb_rel.to_json(floc.format(path,n))
+    build_df.save_file_to_s3(floc, 'wanderwell-ready')
+
+    model = SparkNLPClassifier()
+    model.vectorize_train( 'useful + funny + cool', thres=3, n_features=8)
     testrf = model.train_test_split()
-    model.train_boosted_regression(depth=3, n_trees=n)
+    model.train_boosted_regression(depth=2, n_trees=50, max_cats=n)
     predictionnb = model.predict(testrf)
     nb_rel = predictionnb.select('probability','label').toPandas()
-    nb_rel.to_json('{}{}_gbt_trees_performance.json'.format(path,n))
-    # build_df.save_file_to_s3('{}{}_trees.json'.format(n), 'wanderwell-ready')
+    floc = '{}{}_trees_gbr_3upvotes_1learn_2depth_.json'.format(path,n)
+    nb_rel.to_json(floc)
+    build_df.save_file_to_s3(floc, 'wanderwell-ready')
 
+for n in np.linspace(.5,5,8):
+    model = SparkNLPClassifier()
+    model.vectorize_train( 'useful + funny + cool', thres=n, n_features=8)
+    model.train_test_split()
+    testrf = model.train_naive_bayes(smoothing = 1.0)
+    predictionnb = model.predict(testrf)
+    nb_rel = predictionnb.select('probability','label').toPandas()
+    floc = '{}{}upvotes_nb_1smoothing_.json'.format(n*100)
+    nb_rel.to_json(floc)
+    build_df.save_file_to_s3(floc, 'wanderwell-ready')
+    
+for n in np.arange(1,27,5):
+    model = SparkNLPClassifier()
+    model.vectorize_train( 'useful + funny + cool', thres=n, n_features=8)
+    test = model.train_test_split()
+    model.train_random_forest(depth=15, n_trees=50, max_cats=6)
+    predictionnb = model.predict(test)
+    floc = '{}{}maxcats_50trees_rf_3upvotes_1learn_15depth_.json'.format(path,n)
+    nb_rel = predictionnb.select('probability', 'label').toPandas()
+    nb_rel.to_json(floc.format(path,n))
+    build_df.save_file_to_s3(floc, 'wanderwell-ready')
 
-# ### TRAIN NAIVE BAYES ON Prefered
-# model = SparkNLPClassifier()
+    model = SparkNLPClassifier()
+    model.vectorize_train( 'useful + funny + cool', thres=n, n_features=8)
+    testrf = model.train_test_split()
+    model.train_boosted_regression(depth=2, n_trees=50, max_cats=6)
+    predictionnb = model.predict(testrf)
+    nb_rel = predictionnb.select('probability','label').toPandas()
+    floc = '{}{}upvotes_trees_gbr_1learn_2depth_.json'.format(path,n)
+    nb_rel.to_json(floc)
+    build_df.save_file_to_s3(floc, 'wanderwell-ready')
 
-# model.vectorize_train('stars', 4)
-# testrf = model.train_test_split()
+    model = SparkNLPClassifier()
+    model.vectorize_train( 'useful + funny + cool', thres=n, n_features=8)
+    test = model.train_test_split()
+    model.train_random_forest(depth=15, n_trees=50, max_cats=6)
+    predictionnb = model.predict(test)
+    floc = '{}{}upvotes_50trees_rf_1learn_15depth_.json'.format(path,n)
+    nb_rel = predictionnb.select('probability', 'label').toPandas()
+    nb_rel.to_json(floc.format(path,n))
+    build_df.save_file_to_s3(floc, 'wanderwell-ready')
 
-# model.train_naive_bayes()
-# predictionnb = model.predict(testrf)
-
-# nb_pop = predictionnb.select('probability','label').toPandas()
-
-# nb_pop.to_json('../data/rf_model_performance/nb_popular.json')
-
-# build_df.save_file_to_s3('../data/rf_model_performance/nb_popular.json', 'wanderwell-ready')
+for i in np.logspace(.0001,.1, 10):
+    model = SparkNLPClassifier()
+    model.vectorize_train( 'useful + funny + cool', thres=3, n_features=8)
+    testrf = model.train_test_split()
+    model.train_boosted_regression(depth=2, n_trees=100, max_cats=6)
+    predictionnb = model.predict(testrf)
+    nb_rel = predictionnb.select('probability','label').toPandas()
+    floc = '{}{}learn_3upvotes_trees_gbr_1learn_2depth_.json'.format(path,n)
+    nb_rel.to_json(floc)
+    build_df.save_file_to_s3(floc, 'wanderwell-ready')
