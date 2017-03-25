@@ -10,9 +10,10 @@ from pyspark.ml.feature import HashingTF, IDF, Tokenizer, StopWordsRemover, Stri
 # from pyspark.ml.feature import NGram # maybe
 
 from pyspark.ml import Pipeline
-from pyspark.ml.classification import RandomForestClassifier, GBTClassifier, NaiveBayes
+from pyspark.ml.classification import RandomForestClassifier, NaiveBayes
 from pyspark.ml.tuning import CrossValidator, ParamGridBuilder
 from pyspark.ml.evaluation import BinaryClassificationEvaluator
+from pyspark.ml.regression import GBTRegressor
 from pyspark.mllib.evaluation import BinaryClassificationMetrics, MulticlassMetrics
 
 class SparkNLPClassifier(object):
@@ -178,8 +179,8 @@ class SparkNLPClassifier(object):
         '''
         featureIndexer = \
         VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=max_cats).fit(self.train)
-        gbr = GBTClassifier(labelCol='label', featuresCol="features",
-                             maxDepth=depth, maxIter=n_trees, stepSize=learning_rate, maxMemoryInMB=10000)
+        gbr = GBTRegressor(labelCol='label', featuresCol="features",
+                             maxDepth=depth, maxIter=n_trees, stepSize=learning_rate, maxMemoryInMB=20000)
         pipeline = Pipeline(stages=[featureIndexer, gbr])
         # Train model.  This also runs the indexer.
         self.model = pipeline.fit(self.train)
@@ -196,7 +197,7 @@ class SparkNLPClassifier(object):
         featureIndexer = \
         VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=max_cats).fit(self.train)
         gbr = RandomForestClassifier(labelCol='label', featuresCol="features", probabilityCol="probability",
-                                maxDepth=depth, numTrees=n_trees, maxMemoryInMB=10000)
+                                maxDepth=depth, numTrees=n_trees, maxMemoryInMB=20000)
         pipeline = Pipeline(stages=[featureIndexer, gbr])
         # Train model.  This also runs the indexer.
         self.model = pipeline.fit(self.train)
