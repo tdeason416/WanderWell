@@ -34,9 +34,8 @@ class SparkNLPClassifier(object):
         self.data: spark dataframe containing training set.
         '''
         self.spark = ps.sql.SparkSession.builder \
-            .appName("nlp") \
-            .sparkSession.conf.set("spark.hadoop.fs.s3a.impl",
-                     "org.apache.hadoop.fs.s3a.S3AFileSystem") \
+            .master("spark://master:7077") \
+            .appName("nlp_reviews") \
             .getOrCreate()
 
         if not local_file:
