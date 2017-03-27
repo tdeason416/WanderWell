@@ -243,8 +243,10 @@ def remove_unwanted_POIs(df, city):
     bools = np.zeros((df_.shape[0],1), dtype=np.int64).flatten()
     for key, value in subcat.iteritems():
         df_ = _apply_filter(df_, value, key)
+        df_[key] = value
         bools |= df_[key]
     df_ = df_[bools > 0]
+    
     df = _remove_outlier_zips(df_, 'location.zip_code', 10)
     # zips = df_['location.zip_code'].value_counts() < 10
     # zipdex = zips[zips].index

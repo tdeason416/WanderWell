@@ -34,6 +34,7 @@ class CityValues(object):
         self.nlp_ratings = pd.read_json('../data/{}-c_ratings.json'\
                                                             .format(city.lower()))
         self.weighted_ratings = None
+        self.bus_ratings = None
         self.time_periods = [30, 90, 180, 360, 720]
         if endtime is None:
             self.endtime = pd.Timestamp('2017, 3, 5')
@@ -129,10 +130,18 @@ class CityValues(object):
         Returns
         biz_ratings: pd.DataFrame - ratings of buisneses
         '''
-        print self.weighed_ratings.columns
-        bus_ratings = self._apply_rating_frequency(self.weighed_ratings, 'bus_id')
-        print bus_ratings.head()
+        bus_ratings_df = self.general.copy()
+        bus_comments = self._apply_rating_frequency(self.weighed_ratings, 'bus_id')
+        gridex = build_df._find_min_distance(self.general, self.bnb)
+        distances_min = np.apply_along_axis(np.mean, 1, gridex[:,:5])
+        distances = (distances_min.max() - distances_min)/distances_min.max()
+        distances.set_index(self.general['id']) 
+        for per in self.time_periods:
+            high_f = bus_comments['rpd_{}'.format(per)].max()
+            
+            
 
+        self.general['rating']
 
 
 

@@ -35,7 +35,8 @@ class SparkNLPClassifier(object):
         '''
         self.spark = ps.sql.SparkSession.builder \
             .appName("nlp") \
-            .config(SparkConf) \
+            .sparkSession.conf.set("spark.hadoop.fs.s3a.impl",
+                     "org.apache.hadoop.fs.s3a.S3AFileSystem") \
             .getOrCreate()
 
         if not local_file:
