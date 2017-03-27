@@ -1,5 +1,6 @@
 import re
 import pyspark as ps
+from pyspark import SparkConf
 import os 
 import numpy as np
 import pandas as pd
@@ -32,9 +33,10 @@ class SparkNLPClassifier(object):
         RETURNS
         self.data: spark dataframe containing training set.
         '''
-        self.spark = spark = ps.sql.SparkSession.builder \
-            .appName("reviews_nlp") \
-            .getOrCreate() 
+        self.spark = ps.sql.SparkSession.builder \
+            .appName("nlp") \
+            .config(SparkConf) \
+            .getOrCreate()
 
         if not local_file:
             train_url = 's3n://wanderwell-ready/yelp_academic_dataset_review.json'
