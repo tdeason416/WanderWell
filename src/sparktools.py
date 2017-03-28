@@ -85,7 +85,29 @@ class SparkNLPClassifier(object):
         dataset_pos = df.filter('label = 1').orderBy(rand()).limit(mincount)
         return dataset_pos.union(dataset_neg)
 
-    def vectorize_train(self, label, thres=16, n_features=20):
+    # def vectorize_predict(self, label, thres=16, n_features=16):
+    #     '''
+    #     Applies generate_binary_labels, split labeled sets
+    #     and vectorize to the training set
+    #     --------
+    #     Parameters:
+    #     label: str - name of the label variable
+    #     thres: inclusive mininmum value for positive label
+    #     n_features: number of terms to be vectorized per set
+    #     prediction_df: data to be predicted
+    #     --------
+    #     Returns
+    #     test_data
+    #     populates self.train
+    #     '''
+    #     self.train = self.generate_binary_labels(self.data, label, thres)
+    #     self.train = self.split_labeled_sets(self.train, label)
+    #     train_predict = self.train.union()
+    #     self.train = self.vectorize(self.train, n_features)
+
+
+
+    def vectorize_train(self, label, thres=16, n_features=16):
         '''
         Applies generate_binary_labels, split labeled sets
         and vectorize to the training set
@@ -126,7 +148,6 @@ class SparkNLPClassifier(object):
         hashingTF = HashingTF(inputCol="words", outputCol="rawFeatures", numFeatures=n_features)
         featurizedData = hashingTF.transform(wordsData)
         featurizedData.cache()
-        
         idf = IDF(inputCol="rawFeatures", outputCol="features")
         idfModel = idf.fit(featurizedData)
         rescaledData = idfModel.transform(featurizedData)
@@ -205,8 +226,7 @@ class SparkNLPClassifier(object):
             ntext = text.lower()
             ntext = re.sub("[^a-z' ]", ' ', ntext)
             return ntext.split()
-        thres = 4
-        self.spark.udf.register('imbin', lambda x: 1 if x >= thres else 0)
+        self.spark.udf.register('prebin', lambda x: 3 if x >= -1 else 0)
         self.spark.udf.register('words_only', _rem_non_letters)
         df = self.spark.createDataFrame(dataframe)
         df.registerTempTable('to_predict')
