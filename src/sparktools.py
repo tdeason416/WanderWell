@@ -279,7 +279,8 @@ class SparkNLPClassifier(object):
         predict - spark.df with probabbility row added
         '''
         probability = self.model.transform(test)
-        return probability
+        probability.printSchema()
+	return probability
 
     def evaluate_model_simple(self, test):
         '''

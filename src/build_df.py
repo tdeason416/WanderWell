@@ -53,6 +53,7 @@ def extract_from_s3(bucket_name, local_folder, keyword):
         if fname not in files and '.json' in fname and keyword in fname:
             aws.meta.client.download_file(bucket_name,
                                 fname,'{}{}'.format(local_folder, fname))
+
 def create_flattened_dataframe(json_folder):
     '''
     Loads locally stored single line .json files into flattned dataframe
@@ -243,16 +244,9 @@ def remove_unwanted_POIs(df, city):
     bools = np.zeros((df_.shape[0],1), dtype=np.int64).flatten()
     for key, value in subcat.iteritems():
         df_ = _apply_filter(df_, value, key)
-        df_[key] = value
         bools |= df_[key]
     df_ = df_[bools > 0]
-    
     df = _remove_outlier_zips(df_, 'location.zip_code', 10)
-    # zips = df_['location.zip_code'].value_counts() < 10
-    # zipdex = zips[zips].index
-    # for zipcode in zipdex:
-    #     df_ = df_[df_['location.zip_code'] != zipcode]
-    # df_.index = np.arange(df_.shape[0])
     return df_
 
 def create_bnb_df(file_location, city):
