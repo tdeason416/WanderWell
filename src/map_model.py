@@ -72,14 +72,13 @@ class CityValues(object):
             grouped.drop('date{}_sum'.format(num), axis=1, inplace=True)
         return grouped
 
-
     def _identify_fraud_users(self):
         '''
         Identifys fradulant users in the self.comments df
         '''
         by_date = self.comments.groupby(['user', 'date']).count()
         by_date_ = by_date.reset_index()
-        by_users = by_date_.groupby('user').agg({'content' : ['median', 'std', 'max']}).fillna(10)
+        by_users = by_date_.groupby('user').agg({'rating' : ['median', 'std', 'max']}).fillna(10)
         by_users.columns = [col[1].strip() for col in by_users.columns.values]
         fraud = by_users[(by_users['median'] <= 1) & (by_users['max'] > 15) & (by_users['std'] < 5)]
         return fraud.index
@@ -95,24 +94,24 @@ class CityValues(object):
         pd.Dataframe - Creates self.weighted_ratings dataframe
         '''
         self._add_comments_ratings()
-        no_text = self.comments.drop('content', axis=1)
+        no_text = self.comments.copy()
         no_text['date'] = (pd.Timestamp('2017, 2, 28') - no_text['date']).apply(lambda x: x.days)
         no_text['positive'] = no_text['rating'].apply(lambda x: True if x > 4 else False)
         by_user = self._apply_rating_frequency(no_text, 'user')
         by_user = by_user[by_user['rating_std'] != 0]
         counts = by_user['rating_count'].describe().values
-        fraudsters = self._identify_fraud_users()
-        by_user.drop(fraudsters, inplace=True)
-        # s_users = by_user['rating_count'] > 30
-        # twosig = counts[1] + 1.5 * counts[2]
-        # pow_user = (by_user['rating_count'] > twosig + s_users)
-        # active_user = (by_user['rpd_30'] > .25 + s_users) * 1.5
-        # endurance_user = (by_user['rpd_720'] > .05) * 2.0
-        by_user['weight'] = 1.0 #(pow_user*1.5 + active_user*1.25 + endurance_user*2.0)
+        # fraudsters = self._identify_fraud_users()
+        # by_user.drop(fraudsters, inplace=True)
+        s_users = by_user['rating_count'] > 30
+        twosig = counts[1] + 1.5 * counts[2]
+        pow_user = (by_user['rating_count'] > twosig + s_users) * 1.1
+        active_user = (by_user['rpd_30'] > .25 + s_users) * 1.5
+        endurance_user = (by_user['rpd_720'] > .05) * 1.125
+        by_user['weight'] = (pow_user + active_user + endurance_user)
         no_text_neg = no_text[no_text['positive'] == False]
-        no_text_neg['rating'].apply(lambda x: 4 - x)
+        no_text_neg['rating'].apply(lambda x: 3 - x)
         no_text_pos = no_text[no_text['positive']]
-        no_text_pos['rating'] = no_text_pos['rating'].apply(lambda x: x - 3)
+        no_text_pos['rating'] = no_text_pos['rating'].apply(lambda x: x - 2)
         for user_rating in by_user['weight'].value_counts().index:
             no_text_neg['weighted_rating'] = -(user_rating * no_text_neg['rating'])
             no_text_pos['weighted_rating'] = user_rating * no_text_pos['rating']
@@ -130,26 +129,49 @@ class CityValues(object):
         Returns
         biz_ratings: pd.DataFrame - ratings of buisneses
         '''
-        bus_ratings_df = self.general.copy()
+        bus_ratings_df = self.general.drop('rating', axis=1)
         bus_comments = self._apply_rating_frequency(self.weighed_ratings, 'bus_id')
-        gridex = build_df._find_min_distance(self.general, self.bnb, sorted=False)
+        bus_ratings_df.fillna(0, inplace=True)
+        drop_ids = bus_ratings_df[bus_ratings_df['lat'] == 0]['id']
+        bus_ratings_df = bus_ratings_df[bus_ratings_df['lat'] != 0]
+        bus_comments.drop(drop_ids, inplace=True)
+        # there are 10 nan values in 
+        cols = ['lat', 'long']
+        gridex = build_df._find_min_distance(bus_ratings_df[cols], self.bnb[cols], sorted=False)
         bnb_prox = []
-        for row in range(gridex.shape[0]):
-            t_data = gridex < .01
-            bnb_prox.append(np.dot(.005 - t_data, self.bnb['rating'])) * 8
-        bnb_prox = np.array(bnb_prox)
-        distances_min = np.apply_along_axis(np.mean, 1, gridex[:, :4]) 
-        distances = (distances_min.max() - distances_min)/distances_min.max()
-        distances.set_index(self.general['id'])
-        rating_frequency = []
+        gridex = gridex * (gridex < .005)
+        bnb_prox = np.nan_to_num(np.dot(.005 - gridex, self.bnb['rating']) / 120)
         trending = bus_comments['rpd_30'] > (bus_comments['rpd_30'].mean() + 
-                                                2*bus_comments['rpd_30'].std())
-        landmarks = bus_comments['rpd_720'] > 3
-        self.general['rating'] = (bus_comments['rating_sum'] * bnb_prox
-                        * trending * 2.0)/(np.sqrt(bus_comments['rating_count']))
-        self.bus_ratings = self.general[['id', 'rating']]
+                                                2.5*bus_comments['rpd_30'].std()) * 1.5
+        bus_ratings_df['adj_rating'] = (bus_comments['rating_sum'].values * (1+bnb_prox) * \
+                           (trending + 1) / (np.sqrt(bus_comments['rating_count'].values))).values
+        bus_ratings_df.sort_values('adj_rating', ascending=True, inplace=True)
+        bus_ratings_df['rank'] =  \
+            np.tan(np.linspace(0.261799388, 1.309, bus_ratings_df.shape[0]))
+        self.bus_ratings = bus_ratings_df[['long', 'lat', 'id', 'rank', 
+                                        'coffee', 'food', 'nightlife']]
+        subratings = {}
+        for cat in ['coffee', 'food', 'nightlife']:
+            subratings[cat] = self.bus_ratings[self.bus_ratings[cat]]
+        self.catratings = subratings
         
-
-
+    def assign_grid_values(self):
+        '''
+        apply weight values to grid
+        '''
+        cols = ['long', 'lat']
+        print self.grid.shape
+        distance_matrix = build_df._find_min_distance(self.grid[cols],
+                                                    self.bus_ratings[cols], sorted=False)
+        distance_matrix = distance_matrix > .015
+        penalty_row = np.sqrt(np.apply_along_axis(np.sum, 1, distance_matrix))
+        wdmatrix = {}
+        for key in self.catratings.keys():
+            wdmatrix[key] = np.dot(distance_matrix,  
+               (self.bus_ratings[key] * self.bus_ratings['rank']).reshape(-1,1)) * penalty_row
+            # wdmatrix[key] = np.apply_along_axis(np.sum(), 1
+            #     ,distance_matrix)
+            
+        return wdmatrix
 
         

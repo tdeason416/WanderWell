@@ -301,7 +301,7 @@ def create_general_df(df):
     RETURNS
     pandas df - dataframe containing reviews
     '''
-    keep_cols = ['name', 'category-0', 'coordinates.latitude', 'coordinates.longitude',
+    keep_cols = ['id', 'category-0', 'coordinates.latitude', 'coordinates.longitude',
                 'is_claimed', 'location.zip_code', 'price', 'review_count', 'food', 
                 'coffee', 'nightlife']
     hours_cols = [col for col in df.columns if col.startswith('hours')]
