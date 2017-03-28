@@ -45,7 +45,7 @@ class CityValues(object):
         '''
         Adds comment relevance ratings derived from SPARK nlp to self.comments
         '''
-        self.comments['relevance'] = self.nlp_ratings.values
+        self.comments['relevance'] = self.nlp_ratings['prediction']
 
     def _apply_rating_frequency(self, df, group_col):
         '''
@@ -59,7 +59,7 @@ class CityValues(object):
         grouped: Pd.Series - integer timedelta in days to the endtime
         '''
         df_ = df.copy()
-        agg_dict = {'rating': ['count', 'median', 'std'], 'date': ['min', 'max']}
+        agg_dict = {'rating': ['count', 'median', 'std', 'sum'], 'date': ['min', 'max']}
         for num in self.time_periods:
             df_['date{}'.format(num)] = df_['date'] <= num * df_['date']
             agg_dict['date{}'.format(num)] = 'sum'
@@ -103,12 +103,12 @@ class CityValues(object):
         counts = by_user['rating_count'].describe().values
         fraudsters = self._identify_fraud_users()
         by_user.drop(fraudsters, inplace=True)
-        s_users = by_user['rating_count'] > 30
-        twosig = counts[1] + 1.5 * counts[2]
-        pow_user = (by_user['rating_count'] > twosig + s_users)
-        active_user = (by_user['rpd_30'] > .25 + s_users) * 1.5
-        endurance_user = (by_user['rpd_720'] > .05) * 2.0
-        by_user['weight'] = (pow_user*1.5 + active_user*1.25 + endurance_user*2.0)
+        # s_users = by_user['rating_count'] > 30
+        # twosig = counts[1] + 1.5 * counts[2]
+        # pow_user = (by_user['rating_count'] > twosig + s_users)
+        # active_user = (by_user['rpd_30'] > .25 + s_users) * 1.5
+        # endurance_user = (by_user['rpd_720'] > .05) * 2.0
+        by_user['weight'] = 1.0 #(pow_user*1.5 + active_user*1.25 + endurance_user*2.0)
         no_text_neg = no_text[no_text['positive'] == False]
         no_text_neg['rating'].apply(lambda x: 4 - x)
         no_text_pos = no_text[no_text['positive']]
@@ -116,7 +116,7 @@ class CityValues(object):
         for user_rating in by_user['weight'].value_counts().index:
             no_text_neg['weighted_rating'] = -(user_rating * no_text_neg['rating'])
             no_text_pos['weighted_rating'] = user_rating * no_text_pos['rating']
-        rating_sum = pd.concat([no_text_neg, no_text_pos])
+        rating_sum = pd.concat([no_text_neg, no_text_pos]) 
         rating_sum['rating'] = rating_sum['weighted_rating'] * rating_sum['relevance']
         self.weighed_ratings = rating_sum.drop('weighted_rating', axis=1)
 
@@ -134,21 +134,21 @@ class CityValues(object):
         bus_comments = self._apply_rating_frequency(self.weighed_ratings, 'bus_id')
         gridex = build_df._find_min_distance(self.general, self.bnb, sorted=False)
         bnb_prox = []
-        for row in xrange(gridex.shape[0]):
+        for row in range(gridex.shape[0]):
             t_data = gridex < .01
-            bnb_prox.append(np.dot(.01 - t_data, self.bnb['rating'])/ np.sqrt(t_data.sum()))
+            bnb_prox.append(np.dot(.005 - t_data, self.bnb['rating'])) * 8
         bnb_prox = np.array(bnb_prox)
-            
-            
-        distances_min = np.apply_along_axis(np.mean, 1, gridex[:,:4]) 
+        distances_min = np.apply_along_axis(np.mean, 1, gridex[:, :4]) 
         distances = (distances_min.max() - distances_min)/distances_min.max()
-        distances.set_index(self.general['id']) 
-        for per in self.time_periods:
-            high_f = bus_comments['rpd_{}'.format(per)].max()
-            
-            
-
-        self.general['rating']
+        distances.set_index(self.general['id'])
+        rating_frequency = []
+        trending = bus_comments['rpd_30'] > (bus_comments['rpd_30'].mean() + 
+                                                2*bus_comments['rpd_30'].std())
+        landmarks = bus_comments['rpd_720'] > 3
+        self.general['rating'] = (bus_comments['rating_sum'] * bnb_prox
+                        * trending * 2.0)/(np.sqrt(bus_comments['rating_count']))
+        self.bus_ratings = self.general[['id', 'rating']]
+        
 
 
 
