@@ -28,7 +28,7 @@ class CityValues(object):
         if S3:
             build_df.extract_from_s3('wanderwell-ready', '../data/', city.lower())
         self.general = pd.read_json('../data/{}-clean.json'.format(city.lower()))
-        self.bnb = pd.read_json('../data/{}-bnb.json'.format(city.lower()))
+        self.bnb = pd.read_json('../data/{}-bnb.json'.format(city.lower())).fillna(0)
         self.grid = pd.read_json('../data/{}-grid.json'.format(city.lower()))
         self.comments = pd.read_json('../data/{}-comments.json'.format(city.lower()))
         self.nlp_ratings = pd.read_json('../data/{}-c_ratings.json'\
@@ -136,7 +136,7 @@ class CityValues(object):
         bnb_prox = []
         for row in xrange(gridex.shape[0]):
             t_data = gridex < .01
-            bnb_prox.append(np.dot(.01 - tdata, self.bnb['rating'])/ np.sqrt(tdata.sum()))
+            bnb_prox.append(np.dot(.01 - t_data, self.bnb['rating'])/ np.sqrt(t_data.sum()))
         bnb_prox = np.array(bnb_prox)
             
             

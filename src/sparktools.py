@@ -188,7 +188,7 @@ class SparkNLPClassifier(object):
         # Train model.  This also runs the indexer.
         self.model = pipeline.fit(self.train)
 
-    def Add_prediction_data_from_pandas(dataframe):
+    def Add_prediction_data_from_pandas(self, dataframe):
         '''
         adds data from pandas to the object as self.test
         --------
@@ -198,7 +198,10 @@ class SparkNLPClassifier(object):
         Returns
         None - initiates the self.test object
         '''
-        self.test = self.spark.createDataFrame(dataframe)
+        inputs = self.spark.createDataFrame(dataframe)
+        inputs.registerTempTable('inputs')
+        self.spark.udf.register('fill_column', lambda x: 1)
+        self.test = self.spark.sql('''SELECT content fill_column(rating) FROM inputs''')
 
     def train_random_forest(self, depth=3, n_trees=100, max_cats=6):
         '''
