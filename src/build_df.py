@@ -323,7 +323,7 @@ def create_general_df(df):
     df_.index = np.arange(df_.shape[0])
     return df_
 
-def _find_min_distance(df1, df2):
+def _find_min_distance(df1, df2, sorted=True):
     '''
     Finds Min distance between df1 and df2 values
     --------
@@ -344,8 +344,9 @@ def _find_min_distance(df1, df2):
     tmp1 = df1_['lat'].apply(lambda x: np.abs(x - df2_lat))
     tmp2 = df1_['long'].apply(lambda x: np.abs(x - df2_long))
     distances = np.sqrt(tmp1*tmp1 + tmp2*tmp2)
-    distances_sorted = np.sort(distances, axis=1)
-    return distances_sorted
+    if sorted:
+        distances = np.sort(distances, axis=1)
+    return distances
 
 def build_grid(city_df, point_spacing, max_distance):
     '''

@@ -45,20 +45,24 @@ def roc_curve_many(json_folder, save_file=True):
     '''
     if json_folder[-1] != '/':
         json_folder += '/'
-    colors  = itertools.cycle(['red','cyan', 'green', 'orange', 'violet', 'blue', 'pink'])
+    colors  = itertools.cycle(['red','cyan', 'green', 'orange', 'violet', 'blue', 
+                                'pink', 'yellow', 'purple', 'black'])
     if save_file:
         save_file = '../images/roc_curve-{}'.format(datetime.datetime.now().toordinal())
     list_of_pd_frames = os.listdir(json_folder)
     fig, ax = plt.subplots(1,1,figsize=(13,13))
     for frame in list_of_pd_frames:
-        model = pd.read_json(json_folder+frame)
-        model.probability = model.probability.apply(lambda x: x['array'][1])
+        model_probs = pd.read_json(json_folder+frame)
+        print model_probs.columns
+        probability = model_probs.columns[0]
+        label = model_probs.columns[1]
+        model_probs[probability] = model_probs[probability].apply(lambda x: x['array'][1])
         roc_values = []
         for thres in np.linspace(.01, .99, 500):
-            model['pred'] = model['probability'].apply(lambda x: 1 if x > thres else 0)
+            model_probs['pred'] = model_probs[probability].apply(lambda x: 1 if x > thres else 0)
             rowdict = {}
-            is_pos = model[model['label'] == 1]
-            is_neg = model[model['label'] == 0]
+            is_pos = model_probs[model_probs[label] == 1]
+            is_neg = model_probs[model_probs[label] == 0]
             rowdict['tpr'] = float(is_pos[is_pos['pred'] == 1].shape[0])/is_pos.shape[0]
             rowdict['fpr'] = float(is_neg[is_neg['pred'] == 1].shape[0])/is_neg.shape[0]
             roc_values.append(rowdict)

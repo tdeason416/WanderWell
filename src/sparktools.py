@@ -183,7 +183,7 @@ class SparkNLPClassifier(object):
         featureIndexer = \
         VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=max_cats).fit(self.train)
         gbr = GBTRegressor(labelCol='label', featuresCol="features",
-                             maxDepth=depth, maxIter=n_trees, stepSize=learning_rate, maxMemoryInMB=512)
+                             maxDepth=depth, maxIter=n_trees, stepSize=learning_rate, maxMemoryInMB=2000)
         pipeline = Pipeline(stages=[featureIndexer, gbr])
         # Train model.  This also runs the indexer.
         self.model = pipeline.fit(self.train)
@@ -200,7 +200,7 @@ class SparkNLPClassifier(object):
         featureIndexer = \
         VectorIndexer(inputCol="features", outputCol="indexedFeatures", maxCategories=max_cats).fit(self.train)
         gbr = RandomForestClassifier(labelCol='label', featuresCol="features", probabilityCol="probability",
-                                maxDepth=depth, numTrees=n_trees, maxMemoryInMB=512)
+                                maxDepth=depth, numTrees=n_trees, maxMemoryInMB=2000)
         pipeline = Pipeline(stages=[featureIndexer, gbr])
         # Train model.  This also runs the indexer.
         self.model = pipeline.fit(self.train)
