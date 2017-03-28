@@ -85,7 +85,7 @@ class SparkNLPClassifier(object):
         dataset_pos = df.filter('label = 1').orderBy(rand()).limit(mincount)
         return dataset_pos.union(dataset_neg)
 
-    def vectorize_train(self, label, thres=1, n_features=20):
+    def vectorize_train(self, label, thres=16, n_features=20):
         '''
         Applies generate_binary_labels, split labeled sets
         and vectorize to the training set
@@ -102,7 +102,7 @@ class SparkNLPClassifier(object):
         self.train = self.split_labeled_sets(self.train, label)
         self.train = self.vectorize(self.train, n_features)
 
-    def vectorize(self, df, n_features=8):
+    def vectorize(self, df, n_features=16):
         '''
         generates vectorized features from the self.traindf dataframe
         --------
@@ -169,8 +169,8 @@ class SparkNLPClassifier(object):
                         numFolds= number_of_folds)
         return crossval.fit(df)
 
-    def train_boosted_regression(self, depth=2, n_trees=100,
-                                 learning_rate= .01, max_cats= 6):
+    def train_boosted_regression(self, depth=2, n_trees=50,
+                                 learning_rate= .01, max_cats=6):
         '''
         train dataset on boosted decision trees
         --------
@@ -187,6 +187,18 @@ class SparkNLPClassifier(object):
         pipeline = Pipeline(stages=[featureIndexer, gbr])
         # Train model.  This also runs the indexer.
         self.model = pipeline.fit(self.train)
+
+    def Add_prediction_data_from_pandas(dataframe):
+        '''
+        adds data from pandas to the object as self.test
+        --------
+        Parameters
+        dataframe: pandas dataframe with data to be processed
+        --------
+        Returns
+        None - initiates the self.test object
+        '''
+        self.test = self.spark.createDataFrame(dataframe)
 
     def train_random_forest(self, depth=3, n_trees=100, max_cats=6):
         '''

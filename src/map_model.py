@@ -132,8 +132,15 @@ class CityValues(object):
         '''
         bus_ratings_df = self.general.copy()
         bus_comments = self._apply_rating_frequency(self.weighed_ratings, 'bus_id')
-        gridex = build_df._find_min_distance(self.general, self.bnb)
-        distances_min = np.apply_along_axis(np.mean, 1, gridex[:,:5])
+        gridex = build_df._find_min_distance(self.general, self.bnb, sorted=False)
+        bnb_prox = []
+        for row in xrange(gridex.shape[0]):
+            t_data = gridex < .01
+            bnb_prox.append(np.dot(.01 - tdata, self.bnb['rating'])/ np.sqrt(tdata.sum()))
+        bnb_prox = np.array(bnb_prox)
+            
+            
+        distances_min = np.apply_along_axis(np.mean, 1, gridex[:,:4]) 
         distances = (distances_min.max() - distances_min)/distances_min.max()
         distances.set_index(self.general['id']) 
         for per in self.time_periods:
