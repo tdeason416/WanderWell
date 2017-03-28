@@ -126,6 +126,7 @@ class SparkNLPClassifier(object):
         hashingTF = HashingTF(inputCol="words", outputCol="rawFeatures", numFeatures=n_features)
         featurizedData = hashingTF.transform(wordsData)
         featurizedData.cache()
+        
         idf = IDF(inputCol="rawFeatures", outputCol="features")
         idfModel = idf.fit(featurizedData)
         rescaledData = idfModel.transform(featurizedData)
@@ -143,7 +144,8 @@ class SparkNLPClassifier(object):
         '''
         training_data, testing_data = self.train.randomSplit([1-test_size, test_size])
         self.train = training_data
-        return testing_data
+        self.test = testing_data
+        return self.test
 
 
     def cross_val_eval(self, df, model_classifier, paramgrid, number_of_folds=5):
@@ -188,7 +190,7 @@ class SparkNLPClassifier(object):
         # Train model.  This also runs the indexer.
         self.model = pipeline.fit(self.train)
 
-    def Add_prediction_data_from_pandas(self, dataframe):
+    def add_prediction_data_from_pandas(self, dataframe):
         '''
         adds data from pandas to the object as self.test
         --------
@@ -198,10 +200,22 @@ class SparkNLPClassifier(object):
         Returns
         None - initiates the self.test object
         '''
-        inputs = self.spark.createDataFrame(dataframe)
-        inputs.registerTempTable('inputs')
-        self.spark.udf.register('fill_column', lambda x: 1)
-        self.test = self.spark.sql('''SELECT content fill_column(rating) FROM inputs''')
+        def _rem_non_letters(text):
+            lets = []
+            ntext = text.lower()
+            ntext = re.sub("[^a-z' ]", ' ', ntext)
+            return ntext.split()
+        thres = 4
+        self.spark.udf.register('imbin', lambda x: 1 if x >= thres else 0)
+        self.spark.udf.register('words_only', _rem_non_letters)
+        df = self.spark.createDataFrame(dataframe)
+        df.registerTempTable('to_predict')
+        self.test = self.spark.sql('''
+            SELECT array(words_only(content)) as content, int(imbin(rating)) as label  
+            FROM to_predict
+            ''')
+        return self.test
+                                        
 
     def train_random_forest(self, depth=3, n_trees=100, max_cats=6):
         '''
