@@ -19,7 +19,7 @@ city = sys.argv[1].lower()
 ### Build Clean DF
 city_df = build_df.create_flattened_dataframe('../data/{}-json/'.format(city))
 city_df_ = build_df.remove_unwanted_POIs(city_df, city)
-city_df_clean = build_df.create_general_df(city_df)
+city_df_clean = build_df.create_general_df(city_df_)
 city_df_clean.to_json('../data/{}-clean.json'.format(city))
 build_df.save_file_to_s3('../data/{}-clean.json'.format(city), 'wanderwell-ready')
 ### Build Comments DF
@@ -32,6 +32,6 @@ city_bnb_df.to_json('../data/{}-bnb.json'.format(city))
 build_df.save_file_to_s3('../data/{}-bnb.json'.format(city), 'wanderwell-ready')
 ## Build Grid
 grid_build = pd.concat([city_df_clean[['lat', 'long']], city_bnb_df[['lat','long']]])
-grid = build_df.build_grid(grid_build, .0025, .0018)
+grid = build_df.build_grid(grid_build, .0027, .0009)
 grid.to_json('../data/{}-grid.json.json'.format(city))
 build_df.save_file_to_s3('../data/{}-grid.json'.format(city), 'wanderwell-ready')

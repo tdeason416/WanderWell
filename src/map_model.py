@@ -142,36 +142,44 @@ class CityValues(object):
         gridex = gridex * (gridex < .005)
         bnb_prox = np.nan_to_num(np.dot(.005 - gridex, self.bnb['rating']) / 120)
         trending = bus_comments['rpd_30'] > (bus_comments['rpd_30'].mean() + 
-                                                2.5*bus_comments['rpd_30'].std()) * 1.5
+                                                2.5*bus_comments['rpd_30'].std()) * 3
         bus_ratings_df['adj_rating'] = (bus_comments['rating_sum'].values * (1+bnb_prox) * \
                            (trending + 1) / (np.sqrt(bus_comments['rating_count'].values))).values
         bus_ratings_df.sort_values('adj_rating', ascending=True, inplace=True)
         bus_ratings_df['rank'] =  \
             np.tan(np.linspace(0.261799388, 1.309, bus_ratings_df.shape[0]))
-        self.bus_ratings = bus_ratings_df[['long', 'lat', 'id', 'rank', 
+        bus_ratings = bus_ratings_df[['long', 'lat', 'id', 'rank', 
                                         'coffee', 'food', 'nightlife']]
+        catlist = ['coffee', 'nightlife', 'food']
         subratings = {}
-        for cat in ['coffee', 'food', 'nightlife']:
-            subratings[cat] = self.bus_ratings[self.bus_ratings[cat]]
-        self.catratings = subratings
+        for cat in catlist:
+            subratings[cat] = bus_ratings[bus_ratings[cat]]
+            bus_ratings = bus_ratings[bus_ratings[cat] == False]
+            for cater in catlist:
+                if cater != cat:
+                    subratings[cat][cater] = False
+            subratings[cat]['catrank'] = \
+            np.tan(np.linspace(0.261799388, 1.309, subratings[cat].shape[0]))
+        self.bus_ratings = pd.concat([val for val in subratings.itervalues()])
         
     def assign_grid_values(self):
         '''
         apply weight values to grid
         '''
+        catlist = ['coffee', 'nightlife', 'food']
         cols = ['long', 'lat']
-        print self.grid.shape
         distance_matrix = build_df._find_min_distance(self.grid[cols],
                                                     self.bus_ratings[cols], sorted=False)
-        distance_matrix = distance_matrix > .015
+        distance_matrix = ((distance_matrix < .015) * distance_matrix).fillna(0).values
         penalty_row = np.sqrt(np.apply_along_axis(np.sum, 1, distance_matrix))
-        wdmatrix = {}
-        for key in self.catratings.keys():
-            wdmatrix[key] = np.dot(distance_matrix,  
-               (self.bus_ratings[key] * self.bus_ratings['rank']).reshape(-1,1)) * penalty_row
-            # wdmatrix[key] = np.apply_along_axis(np.sum(), 1
-            #     ,distance_matrix)
-            
-        return wdmatrix
-
-        
+        wdmatrix = pd.DataFrame(np.zeros(len(catlist) * self.grid.shape[0]).reshape(
+                                self.grid.shape[0], len(catlist)), columns=catlist)
+        for key in catlist:
+            ratings = (self.bus_ratings['catrank'] * self.bus_ratings[key])
+            wdmatrix[key] = (np.dot(distance_matrix, ratings) / penalty_row) \
+                 * float(self.bus_ratings[self.bus_ratings[key] == False].shape[0]) ** 1.05 / ratings.size
+        grid_matrix = np.array([self.grid[self.grid.columns[0]].values,
+                                 self.grid[self.grid.columns[1]].values,
+                                    wdmatrix.idxmax(axis=1).values, 
+                                    wdmatrix.max(axis=1).values]).T
+        return pd.DataFrame(grid_matrix, columns = ['long', 'lat', 'catergory', 'value' ])
