@@ -1,7 +1,7 @@
 # WanderWell
 
 
-![Figure 1-1](README.md "Figure 1-1")
+![Figure 1-1](images/Wanderwell-preview.png "Figure 1-1")
 
 The WanderWell is intended to be a resource for a user to identify neighborhoods within a city which contain destinations which are of interest to the user.  The application’s primary intent is for a tourist interested in seeing areas of a city which embody the nature of the city, but are not necessarily featured on brochures.  The user will be able to select the types of activities of interest to them; which will be coffee, nightlife, available lodging, and dining in the first iteration, and will later be expanded to select specific types of cuisines.  While the tool is primarily intended for visitors to a new city, it may also serve as a tool for current residents of a locale to rediscover their city.
 
