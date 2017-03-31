@@ -1,5 +1,8 @@
 # WanderWell
 
+
+![Figure 1-1](images/WWworkflow "Figure 1-1")
+
 The WanderWell is intended to be a resource for a user to identify neighborhoods within a city which contain destinations which are of interest to the user.  The application’s primary intent is for a tourist interested in seeing areas of a city which embody the nature of the city, but are not necessarily featured on brochures.  The user will be able to select the types of activities of interest to them; which will be coffee, nightlife, available lodging, and dining in the first iteration, and will later be expanded to select specific types of cuisines.  While the tool is primarily intended for visitors to a new city, it may also serve as a tool for current residents of a locale to rediscover their city.
 
 Data, in the form of general locale interest, user reviews and photos, has been retrieved from pubically avaliable sources.  Seattle will serve as the original locality for the test.  Since the intent of the tool is to help the user visit a city in a way more typical of a local, lodging information is made available through the AirBnB api.  Which contains cost, reviews, locations, and room information for at home lodging options in the area.  Additionally, if the user is interested in the nightlife experience, information is extracted using the HERE API, which contains  traffic flow telemetry extracted from navigation embedded in the cars of several German automobile manufactures.
