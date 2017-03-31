@@ -85,28 +85,6 @@ class SparkNLPClassifier(object):
         dataset_pos = df.filter('label = 1').orderBy(rand()).limit(mincount)
         return dataset_pos.union(dataset_neg)
 
-    # def vectorize_predict(self, label, thres=16, n_features=16):
-    #     '''
-    #     Applies generate_binary_labels, split labeled sets
-    #     and vectorize to the training set
-    #     --------
-    #     Parameters:
-    #     label: str - name of the label variable
-    #     thres: inclusive mininmum value for positive label
-    #     n_features: number of terms to be vectorized per set
-    #     prediction_df: data to be predicted
-    #     --------
-    #     Returns
-    #     test_data
-    #     populates self.train
-    #     '''
-    #     self.train = self.generate_binary_labels(self.data, label, thres)
-    #     self.train = self.split_labeled_sets(self.train, label)
-    #     train_predict = self.train.union()
-    #     self.train = self.vectorize(self.train, n_features)
-
-
-
     def vectorize_train(self, label, thres=16, n_features=16):
         '''
         Applies generate_binary_labels, split labeled sets
@@ -279,8 +257,7 @@ class SparkNLPClassifier(object):
         predict - spark.df with probabbility row added
         '''
         probability = self.model.transform(test)
-        probability.printSchema()
-	return probability
+        return probability
 
     def evaluate_model_simple(self, test):
         '''

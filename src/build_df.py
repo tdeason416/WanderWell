@@ -244,10 +244,8 @@ def remove_unwanted_POIs(df, city):
     bools = np.zeros((df_.shape[0],1), dtype=np.int64).flatten()
     for key, value in subcat.iteritems():
         df_ = _apply_filter(df_, value, key)
-        print key
         bools |= df_[key]
     df_ = df_[bools > 0]
-    print df_.columns
     df = _remove_outlier_zips(df_, 'location.zip_code', 10)
     return df_
 
@@ -356,12 +354,17 @@ def build_grid(city_df, point_spacing, max_distance):
     RETURNS
     city_grid: pandas df contining long, and lat columns
     '''
+    point_spacing_lng = point_spacing * np.cos(city_df['lat'].mean()* 0.0174533)
+    # offset_pattern =  [.5 * point_spacing_lng, 0]
     pnorth = city_df['lat'].max() + max_distance
     psouth = city_df['lat'].min() - max_distance
     pwest = city_df['long'].max() + max_distance
     peast = city_df['long'].min() - max_distance
     lats = np.arange(psouth, pnorth, point_spacing).reshape(-1, 1)
-    longs = np.arange(peast, pwest, point_spacing).reshape(-1, 1)
+    lng_base = np.arange(peast, pwest, point_spacing_lng).reshape(-1,1)
+    # offset =  np.repeat(offset_pattern, lng_base.size)[:44].reshape(-1,1)
+    longs = lng_base
+    print longs[:10]
     dummy = np.ones((lats.size, 1))
     empty = np.arange(2).reshape(1, 2)
     for value in longs:

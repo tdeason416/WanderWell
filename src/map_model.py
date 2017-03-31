@@ -45,7 +45,14 @@ class CityValues(object):
         '''
         Adds comment relevance ratings derived from SPARK nlp to self.comments
         '''
-        self.comments['relevance'] = self.nlp_ratings['prediction']
+        def bin_rel(x):
+            if x < .3 :
+                return 0
+            # elif x < .7:
+            #     return .6
+            else:
+                return 1
+        self.comments['relevance'] = self.nlp_ratings['prediction'].apply(bin_rel)
 
     def _apply_rating_frequency(self, df, group_col):
         '''
@@ -129,8 +136,9 @@ class CityValues(object):
         Returns
         biz_ratings: pd.DataFrame - ratings of buisneses
         '''
-        bus_ratings_df = self.general.drop('rating', axis=1)
+        bus_ratings_df = self.general.copy()
         bus_comments = self._apply_rating_frequency(self.weighed_ratings, 'bus_id')
+        # bus_ratings_df = self.bus_general
         bus_ratings_df.fillna(0, inplace=True)
         drop_ids = bus_ratings_df[bus_ratings_df['lat'] == 0]['id']
         bus_ratings_df = bus_ratings_df[bus_ratings_df['lat'] != 0]
@@ -159,7 +167,7 @@ class CityValues(object):
                 if cater != cat:
                     subratings[cat][cater] = False
             subratings[cat]['catrank'] = \
-            np.tan(np.linspace(0.261799388, 1.309, subratings[cat].shape[0]))
+            np.tan(np.linspace(0.195, 1.41, subratings[cat].shape[0]))
         self.bus_ratings = pd.concat([val for val in subratings.itervalues()])
         
     def assign_grid_values(self):

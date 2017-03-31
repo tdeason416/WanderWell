@@ -22,16 +22,20 @@ city_df_ = build_df.remove_unwanted_POIs(city_df, city)
 city_df_clean = build_df.create_general_df(city_df_)
 city_df_clean.to_json('../data/{}-clean.json'.format(city))
 build_df.save_file_to_s3('../data/{}-clean.json'.format(city), 'wanderwell-ready')
+print 'clean dataframe saved to ../{}-clean.json'.format(city
 ### Build Comments DF
 city_comments_df = build_df.create_reviews_df(city_df_)
 city_comments_df.to_json('../data/{}-comments.json'.format(city))
 build_df.save_file_to_s3('../data/{}-comments.json'.format(city), 'wanderwell-ready')
+print 'comments dataframe saved to ../data/{}-comments.json'.format(city)
 ### Build BNB DF
 city_bnb_df = build_df.create_bnb_df('../data/bnb-{}.json'.format(city), city)
 city_bnb_df.to_json('../data/{}-bnb.json'.format(city))
 build_df.save_file_to_s3('../data/{}-bnb.json'.format(city), 'wanderwell-ready')
+print 'bnb dataframe saved to ../data/{}-bnb.json'.format(city)
 ## Build Grid
 grid_build = pd.concat([city_df_clean[['lat', 'long']], city_bnb_df[['lat','long']]])
 grid = build_df.build_grid(grid_build, .0027, .0009)
 grid.to_json('../data/{}-grid.json.json'.format(city))
 build_df.save_file_to_s3('../data/{}-grid.json'.format(city), 'wanderwell-ready')
+print 'grid dataframe saved to ../data/{}-grid.json'.format(city)
